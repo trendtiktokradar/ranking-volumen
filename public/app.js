@@ -1,5 +1,5 @@
-const DEF={h3:50000,h6:100000,h8:100000,h24:250000,unmigFactor:0.3,mcapUnmig:10000,mcapMig:100000,liqMig:10000,avgTrade:50,avgTradeUnmig:35,balance:0.4,minTx:100,ageOn:true,ageDays:7,feesRatio:0};
-let F={...DEF,...JSON.parse(localStorage.rvFilters2||'{}')},hidden=JSON.parse(localStorage.rvHidden||'{}');
+const DEF={h3:50000,h6:100000,h8:100000,h24:250000,unmigFactor:0.3,mcapUnmig:10000,mcapMig:100000,liqMig:10000,avgTrade:50,avgTradeUnmig:35,balance:0.4,minTx:100,ageOn:false,ageDays:7,feesRatio:0};
+let F={...DEF,...JSON.parse(localStorage.rvFilters3||'{}')},hidden=JSON.parse(localStorage.rvHidden||'{}');
 let W='h3',Q='',showHidden=false,data={coins:[]},view=[];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
@@ -10,7 +10,10 @@ const txw=w=>(w==='h3'||w==='h6')?'h6':'h24';
 function stats(c,w){const x=c.txw&&c.txw[w];if(x){const n=x.buys+x.sells;return{buys:x.buys,sells:x.sells,tx:n,n,avg:n?c.vol[w]/n:0,ratio:n?x.buys/n:0,bal:Math.max(x.buys,x.sells)?Math.min(x.buys,x.sells)/Math.max(x.buys,x.sells):0}}
  const tw=txw(w),t=c.tx[tw],n=t.buys+t.sells,f=w==='h3'?.5:w==='h8'?8/24:1;
  return{buys:Math.round(t.buys*f),sells:Math.round(t.sells*f),tx:Math.round(n*f),n,avg:n?c.vol[tw]/n:0,ratio:n?t.buys/n:0,bal:Math.max(t.buys,t.sells)?Math.min(t.buys,t.sells)/Math.max(t.buys,t.sells):0}}
-const inSection=(c,s)=>s==='bonding'?!c.migrated&&!c.paidDex:s==='paid'?c.paidDex:c.migrated;
+const WH={h3:3,h6:6,h8:8,h24:24};
+const evTime=(c,s)=>s==='bonding'?c.createdAt:s==='paid'?c.paidAt:c.migratedAt;
+const inWin=t=>t&&isFinite(t)&&Date.now()-t<=WH[W]*36e5;
+const inSection=(c,s)=>(s==='bonding'?!c.migrated&&!c.paidDex:s==='paid'?c.paidDex:c.migrated)&&inWin(evTime(c,s));
 function passes(c){const u=!c.migrated,st=stats(c,W);
  if((c.vol[W]||0)<F[W]*(u?F.unmigFactor:1)||c.mcap<(u?F.mcapUnmig:F.mcapMig))return false;
  if(!u&&c.liquidity<F.liqMig)return false;
@@ -19,11 +22,11 @@ function passes(c){const u=!c.migrated,st=stats(c,W);
  if(F.feesRatio>0&&c.fees?.feesRatio!=null&&c.fees.feesRatio<F.feesRatio)return false;
  return true}
 const ICON={web:'🌐',twitter:'𝕏',telegram:'✈',discord:'◎'};
-function row(c,isH){const st=stats(c,W),L=c.links||{},sh=c.ca.slice(0,4)+'…'+c.ca.slice(-4);
+function row(c,isH,s){const evl=s==='paid'?`<span class="evt">DEX pagado hace ${age(c.paidAt)}${c.paidEst?' (aprox.)':''}</span>`:s==='migrated'?`<span class="evt">migró hace ${age(c.migratedAt)}</span>`:'';const st=stats(c,W),L=c.links||{},sh=c.ca.slice(0,4)+'…'+c.ca.slice(-4);
  return`<div class="r" data-ax="${c.axiom}">
  <div class="im">${c.image?`<img src="${esc(c.image)}" loading="lazy">`:'<div class="ph"></div>'}<span class="short" data-ca="${c.ca}" title="Copiar CA">${sh}</span></div>
  <div class="mid"><div class="t1"><span class="tk">${esc(c.symbol)}</span><span class="nm">${esc(c.name)}</span><span class="cp" data-ca="${c.ca}" title="Copiar CA">⧉</span></div>
- <div class="t2"><span class="age">${age(c.createdAt)}</span>${Object.entries(L).filter(([t])=>ICON[t]).map(([t,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener" title="${t}">${ICON[t]}</a>`).join('')}
+ <div class="t2"><span class="age" title="edad de la coin">${age(c.createdAt)}</span>${evl}${Object.entries(L).filter(([t])=>ICON[t]).map(([t,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener" title="${t}">${ICON[t]}</a>`).join('')}
  <span class="b">▲ ${k(st.buys)}</span><span class="s">▼ ${k(st.sells)}</span>${c.paidDex?'<span class="pill">DEX PAID</span>':''}<span class="tag">${esc(c.dex)}</span></div>
  <div class="t2"><span class="sm">Liq ${money(c.liquidity)}</span><button class="eye" data-h="${c.ca}" title="${isH?'Restaurar':'Ocultar'}">${isH?'↺ restaurar':'⊘ ocultar'}</button></div></div>
  <div class="box"><div class="vm">V <b class="v">${money(c.vol[W])}</b>${(W==='h3'||W==='h8')&&!(c.txw&&c.txw[W])?' est.':''}&nbsp; MC <b class="mc">${money(c.mcap)}</b></div>
@@ -33,7 +36,7 @@ function render(){$('nh').textContent=Object.keys(hidden).length;view=[];const q
  $('cols').classList.toggle('h',showHidden);for(const id of['bonding','paid','migrated'])$('l_'+id).parentElement.hidden=showHidden;$('hcol').hidden=!showHidden;
  if(showHidden){const l=data.coins.filter(c=>hidden[c.ca]&&m(c));view=l;$('l_hidden').innerHTML=l.map(c=>row(c,true)).join('')||'<div class="empty">No hay coins ocultas.</div>';return}
  for(const s of['bonding','paid','migrated']){const l=data.coins.filter(c=>!hidden[c.ca]&&inSection(c,s)&&m(c)&&passes(c)).sort((a,b)=>b.vol[W]-a.vol[W]).slice(0,data.topN||50);
-  l.forEach(c=>view.push({...c,_sec:s}));$('c_'+s).textContent=l.length;$('l_'+s).innerHTML=l.map(c=>row(c)).join('')||'<div class="empty">Ninguna pasa los filtros.</div>'}}
+  l.forEach(c=>view.push({...c,_sec:s}));$('c_'+s).textContent=l.length;$('l_'+s).innerHTML=l.map(c=>row(c,false,s)).join('')||'<div class="empty">Ninguna pasa los filtros.</div>'}}
 document.addEventListener('click',e=>{const t=e.target;
  if(t.dataset.w){W=t.dataset.w;document.querySelectorAll('#wins button').forEach(b=>b.classList.toggle('on',b===t));return render()}
  if(t.dataset.ca){navigator.clipboard?.writeText(t.dataset.ca);const o=t.textContent;t.textContent='Copiado';setTimeout(()=>t.textContent=o,900);return}
@@ -43,10 +46,10 @@ document.addEventListener('click',e=>{const t=e.target;
 $('q').oninput=e=>{Q=e.target.value.trim();render()};
 $('tf').onclick=()=>$('filters').hidden=!$('filters').hidden;
 for(const key in DEF){const el=$('f_'+key);if(!el)continue;el.type==='checkbox'?el.checked=F[key]:el.value=F[key];
- el.oninput=()=>{F[key]=el.type==='checkbox'?el.checked:+el.value;localStorage.rvFilters2=JSON.stringify(F);render()}}
-$('reset').onclick=()=>{localStorage.removeItem('rvFilters2');location.reload()};
+ el.oninput=()=>{F[key]=el.type==='checkbox'?el.checked:+el.value;localStorage.rvFilters3=JSON.stringify(F);render()}}
+$('reset').onclick=()=>{localStorage.removeItem('rvFilters3');location.reload()};
 $('csv').onclick=()=>{const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
- const rows=[['seccion','nombre','ticker','CA','volumen_'+W,'market_cap','liquidez','compras','ventas','media_op','ath','ath_estimado','creada','axiom']].concat(view.map(c=>{const st=stats(c,W);return[c._sec||'oculta',c.name,c.symbol,c.ca,Math.round(c.vol[W]),Math.round(c.mcap),Math.round(c.liquidity),st.buys,st.sells,Math.round(st.avg),Math.round(c.ath?.ath||0),c.ath?.estimated?'si':'no',new Date(c.createdAt).toISOString(),c.axiom]}));
+ const rows=[['seccion','nombre','ticker','CA','volumen_'+W,'market_cap','liquidez','compras','ventas','media_op','dex_pagado','migrada','ath','ath_estimado','creada','axiom']].concat(view.map(c=>{const st=stats(c,W);return[c._sec||'oculta',c.name,c.symbol,c.ca,Math.round(c.vol[W]),Math.round(c.mcap),Math.round(c.liquidity),st.buys,st.sells,Math.round(st.avg),c.paidAt?new Date(c.paidAt).toISOString():'',c.migratedAt?new Date(c.migratedAt).toISOString():'',Math.round(c.ath?.ath||0),c.ath?.estimated?'si':'no',new Date(c.createdAt).toISOString(),c.axiom]}));
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}));a.download=`ranking_${W}_${new Date().toISOString().slice(0,16)}.csv`;a.click()};
 async function load(){try{const r=await fetch((window.DATA_URL||'data/coins.json')+'?t='+Date.now(),{cache:'no-store'});data=await r.json();
  $('upd').textContent='Actualizado '+new Date(data.updatedAt).toLocaleTimeString('es-ES')+' · '+data.coins.length+' analizadas';render()}catch(e){$('upd').textContent='Sin datos aún'}}

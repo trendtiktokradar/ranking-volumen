@@ -31,3 +31,4 @@ input[type=number]{background:var(--bg);color:var(--txt);border:1px solid var(--
 @media(max-width:1100px){body{height:auto}#cols{grid-template-columns:1fr}.list{max-height:70vh}}
 [hidden]{display:none!important}
 .ath{color:#f5c542}
+.evt{color:#f5c542;font-size:11px}.ch small{color:var(--mut);font-weight:400;font-size:11px}

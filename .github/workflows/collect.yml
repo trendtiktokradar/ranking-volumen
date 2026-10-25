@@ -16,13 +16,14 @@ jobs:
         run: mkdir -p public/data && (curl -sfL "https://raw.githubusercontent.com/${{ github.repository }}/data/history.json?t=$(date +%s)" -o public/data/history.json || rm -f public/data/history.json)
         # ATH conocido por coin (solo sube)
       - run: curl -sfL "https://raw.githubusercontent.com/${{ github.repository }}/data/ath.json?t=$(date +%s)" -o public/data/ath.json || rm -f public/data/ath.json
+      - run: curl -sfL "https://raw.githubusercontent.com/${{ github.repository }}/data/events.json?t=$(date +%s)" -o public/data/events.json || rm -f public/data/events.json
       - run: node collector/index.js
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
           FEES_ENABLED: '0'
       - name: Publicar en la rama data
         run: |
-          mkdir /tmp/out && cp public/data/coins.json public/data/coins.csv public/data/history.json public/data/ath.json /tmp/out/
+          mkdir /tmp/out && cp public/data/coins.json public/data/coins.csv public/data/history.json public/data/ath.json public/data/events.json /tmp/out/
           cd /tmp/out && git init -q -b data
           git config user.name  "${AUTHOR_NAME:-ranking-bot}"
           git config user.email "${AUTHOR_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"

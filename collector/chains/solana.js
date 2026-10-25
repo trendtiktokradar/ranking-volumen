@@ -58,11 +58,12 @@ export async function enrich(addrs) {
       if (NOT_MEME.has(String(main.baseToken.symbol).toUpperCase())) continue;
       if (!isPump(ca, ps)) continue; // solo coins lanzadas en pump.fun
       const sum = (f) => ps.reduce((s, p) => s + (f(p) || 0), 0);
+      const migPairs = ps.filter((p) => !BONDING_DEXES.has(p.dexId) && (p.liquidity?.usd || 0) > 0);
       const migrated = ps.some((p) => !BONDING_DEXES.has(p.dexId) && (p.liquidity?.usd || 0) > 0);
       const paidDex = ps.some((p) => p.info && (p.info.imageUrl || p.info.header || (p.info.socials || []).length || (p.info.websites || []).length));
       coins.push({
         chain, ca, name: main.baseToken.name, symbol: main.baseToken.symbol, pair: main.pairAddress, dex: main.dexId,
-        pools: ps.map((p) => p.pairAddress), migrated, paidDex, boosts: main.boosts?.active || 0,
+        pools: ps.map((p) => p.pairAddress), migrated, migratedAt: migPairs.length ? Math.min(...migPairs.map((p) => p.pairCreatedAt || Infinity)) : null, paidDex, boosts: main.boosts?.active || 0,
         mcap: main.marketCap || main.fdv || 0, liquidity: sum((p) => p.liquidity?.usd), createdAt: Math.min(...ps.map((p) => p.pairCreatedAt || Infinity)),
         image: (ps.find((p) => p.info?.imageUrl) || main).info?.imageUrl || pumpInfo.get(ca)?.image_uri || null,
         links: (() => { const i = (ps.find((p) => p.info) || {}).info || {}; const o = {}; for (const w of i.websites || []) o.web ??= w.url; for (const x of i.socials || []) o[x.type] ??= x.url; const pf = pumpInfo.get(ca); if (pf?.twitter) o.twitter ??= pf.twitter; if (pf?.telegram) o.telegram ??= pf.telegram; if (pf?.website) o.web ??= pf.website; return o; })(), axiom: axiomUrl(main.pairAddress), dexscreener: main.url,
@@ -99,4 +100,12 @@ export async function pumpAth(coins) {
     c.pumpAth = pf?.ath_market_cap ? { ath: pf.ath_market_cap, t: pf.ath_market_cap_timestamp || null } : null;
     if (!c.image && pf?.image_uri) c.image = pf.image_uri;
   }
+}
+
+// Momento del pago del perfil DEX (DexScreener orders: paymentTimestamp del tokenProfile)
+export async function paidAt(ca) {
+  const r = await getJson(`${DS}/orders/v1/${chain}/${ca}`, { tries: 2 });
+  if (!r) return undefined; // error: reintentar otra ejecución
+  const ts = (r.orders || []).filter((o) => o.type === 'tokenProfile' && o.status !== 'rejected' && o.paymentTimestamp).map((o) => o.paymentTimestamp);
+  return ts.length ? Math.min(...ts) : null;
 }

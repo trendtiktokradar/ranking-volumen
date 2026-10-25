@@ -8,14 +8,34 @@ const all = [];
 const histFile = new URL('history.json', OUT);
 const hist = H.load(histFile);
 const athFile = new URL('ath.json', OUT);
+const evFile = new URL('events.json', OUT);
+let ev = {}; try { ev = JSON.parse(fs.readFileSync(evFile)); } catch {}
 let athDb = {}; try { athDb = JSON.parse(fs.readFileSync(athFile)); } catch {}
 for (const name of cfg.chains) {
   const c = await import(`./chains/${name}.js`);
-  const addrs = await c.discover(cfg); console.log(`[${name}] candidatos: ${addrs.length}`);
+  const addrs = await c.discover(cfg);
+  for (const ca in ev) if (ev[ca].chain === name && Date.now() - (ev[ca].seen || 0) < 26 * 36e5 && !addrs.includes(ca)) addrs.push(ca); // perfiles pagados vistos en las últimas 26 h console.log(`[${name}] candidatos: ${addrs.length}`);
   let coins = (await c.enrich(addrs)).filter((x) => x.vol.h24 >= cfg.minVolume24hCandidate);
   coins.sort((a, b) => b.vol.h24 - a.vol.h24);
   console.log(`[${name}] con volumen 24h >= ${cfg.minVolume24hCandidate}: ${coins.length}`);
   if (c.pumpAth) await c.pumpAth(coins);
+  // Eventos: cuándo se pagó el DEX y cuándo migró (persistido en events.json)
+  let nOrders = 0;
+  const needPaid = coins.filter((x) => x.paidDex && !(ev[x.ca] && 'paidAt' in ev[x.ca])).sort((a, b) => b.createdAt - a.createdAt);
+  for (const x of needPaid) {
+    if (nOrders >= cfg.maxOrdersRequests) break;
+    const t = await c.paidAt(x.ca); nOrders++;
+    if (t !== undefined) ev[x.ca] = { ...(ev[x.ca] || {}), chain: name, paidAt: t ?? Date.now(), paidEst: t == null };
+    await new Promise((r) => setTimeout(r, 1100));
+  }
+  for (const x of coins) {
+    const e = ev[x.ca] || (ev[x.ca] = { chain: name });
+    if (x.paidDex) e.seen = Date.now();
+    if (x.migratedAt && !e.migratedAt) e.migratedAt = x.migratedAt;
+    x.paidAt = x.paidDex ? e.paidAt ?? null : null; x.paidEst = !!e.paidEst; x.migratedAt = e.migratedAt || x.migratedAt || null;
+  }
+  for (const ca in ev) if (!ev[ca].paidAt && !ev[ca].migratedAt && Date.now() - (ev[ca].seen || 0) > 26 * 36e5) delete ev[ca];
+  console.log(`[${name}] órdenes DEX consultadas: ${nOrders}, pendientes: ${Math.max(0, needPaid.length - nOrders)}`);
   for (const x of coins) { // ATH: max(pump.fun, guardado, MC actual); nunca baja
     const prev = athDb[x.ca] || { ath: 0 };
     let cur = { ath: prev.ath, t: prev.t, src: prev.src };
@@ -49,9 +69,10 @@ fs.mkdirSync(OUT, { recursive: true });
 fs.writeFileSync(new URL('coins.json', OUT), JSON.stringify(data));
 fs.writeFileSync(histFile, JSON.stringify(hist));
 fs.writeFileSync(athFile, JSON.stringify(athDb));
+fs.writeFileSync(evFile, JSON.stringify(ev));
 const cols = ['chain', 'ca', 'name', 'symbol', 'pair', 'dex', 'migrated', 'paidDex', 'mcap', 'liquidity', 'createdAt'];
 const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-const csv = [[...cols, 'ath', 'vol3h', 'vol6h', 'vol8h', 'vol24h', 'buys24h', 'sells24h', 'axiom'].join(',')]
-  .concat(all.map((x) => [...cols.map((k) => esc(x[k])), Math.round(x.ath?.ath || 0), x.vol.h3, x.vol.h6, x.vol.h8, x.vol.h24, x.tx.h24.buys, x.tx.h24.sells, x.axiom].join(',')));
+const csv = [[...cols, 'paidAt', 'migratedAt', 'ath', 'vol3h', 'vol6h', 'vol8h', 'vol24h', 'buys24h', 'sells24h', 'axiom'].join(',')]
+  .concat(all.map((x) => [...cols.map((k) => esc(x[k])), x.paidAt ? new Date(x.paidAt).toISOString() : '', x.migratedAt ? new Date(x.migratedAt).toISOString() : '', Math.round(x.ath?.ath || 0), x.vol.h3, x.vol.h6, x.vol.h8, x.vol.h24, x.tx.h24.buys, x.tx.h24.sells, x.axiom].join(',')));
 fs.writeFileSync(new URL('coins.csv', OUT), csv.join('\n'));
 console.log(`OK ${all.length} coins en ${data.tookSec}s`);
