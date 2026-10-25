@@ -13,7 +13,7 @@ function stats(c,w){const x=c.txw&&c.txw[w];if(x){const n=x.buys+x.sells;return{
 const WH={h1:1,h3:3,h6:6,h8:8,h24:24};
 const evTime=(c,s)=>s==='bonding'?c.createdAt:s==='paid'?c.paidAt:c.migratedAt;
 const inWin=t=>t&&isFinite(t)&&Date.now()-t<=WH[W]*36e5;
-const MAXAGE={h1:2,h3:8,h6:24,h8:24,h24:48}; // edad máx. de la coin (h) para DEX pagado según ventana
+const MAXAGE={h1:24,h3:24,h6:24,h8:24,h24:24}; // edad máx. de la coin (h) para DEX pagado según ventana
 const inSection=(c,s)=>s==='bonding'?!c.migrated&&!c.paidDex&&inWin(c.createdAt):s==='paid'?c.paidDex&&!c.migrated&&inWin(c.paidAt)&&c.createdAt&&Date.now()-c.createdAt<=MAXAGE[W]*36e5:c.migrated&&inWin(c.migratedAt); // DEX pagado: pagado dentro de la ventana y con volumen en ella
 function passes(c){const u=!c.migrated,st=stats(c,W);
  if((c.vol[W]||0)<F[W]*(u?F.unmigFactor:1)||c.mcap<(u?F.mcapUnmig:F.mcapMig))return false;
