@@ -12,13 +12,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
+      - name: Recuperar historial
+        run: mkdir -p public/data && (curl -sfL "https://raw.githubusercontent.com/${{ github.repository }}/data/history.json?t=$(date +%s)" -o public/data/history.json || rm -f public/data/history.json)
       - run: node collector/index.js
         env:
           HELIUS_API_KEY: ${{ secrets.HELIUS_API_KEY }}
           FEES_ENABLED: '0'
       - name: Publicar en la rama data
         run: |
-          mkdir /tmp/out && cp public/data/coins.json public/data/coins.csv /tmp/out/
+          mkdir /tmp/out && cp public/data/coins.json public/data/coins.csv public/data/history.json /tmp/out/
           cd /tmp/out && git init -q -b data
           git config user.name  "${GIT_AUTHOR_NAME:-ranking-bot}"
           git config user.email "${GIT_AUTHOR_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"

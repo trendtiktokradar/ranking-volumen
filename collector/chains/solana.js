@@ -8,15 +8,27 @@ export const chain = 'solana';
 export const NOT_MEME = new Set(['SOL','WSOL','USDC','USDT','USD1','PYUSD','USDS','WETH','ETH','CBBTC','WBTC','BTC','JITOSOL','MSOL','BSOL','JUPSOL','INF','JLP','EURC','USDG','FDUSD','USDE','XAUT','PAXG']);
 export const axiomUrl = (pair) => `https://axiom.trade/meme/${pair}`;
 
+const PF = 'https://frontend-api-v3.pump.fun';
+export const pumpMints = new Set();
+const pumpInfo = new Map();
+export const isPump = (ca, pairs = []) => ca.endsWith('pump') || pumpMints.has(ca) || pairs.some((p) => p.dexId === 'pumpfun');
+
 export async function discover(cfg) {
   const addrs = new Set();
+  // pump.fun (API pública del frontend, sin auth)
+  const pfUrls = [`${PF}/coins/currently-live?limit=50&offset=0&includeNsfw=true`];
+  for (const complete of [false, true]) for (let off = 0; off < cfg.pumpPages * 50; off += 50)
+    pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=market_cap&order=DESC&includeNsfw=true&complete=${complete}`);
+  for (let off = 0; off < cfg.pumpPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=last_trade_timestamp&order=DESC&includeNsfw=true`);
+  const pfs = await Promise.all(pfUrls.map((u) => getJson(u)));
+  for (const l of pfs) for (const c of Array.isArray(l) ? l : []) if (c.mint && (c.usd_market_cap || 0) >= cfg.pumpMinMcap) { pumpMints.add(c.mint); addrs.add(c.mint); pumpInfo.set(c.mint, c); }
   const add = (a) => a && !a.startsWith('So1111') && addrs.add(a);
   const ds = await Promise.all([
     getJson(`${DS}/token-profiles/latest/v1`), getJson(`${DS}/token-boosts/latest/v1`),
     getJson(`${DS}/token-boosts/top/v1`), getJson(`${DS}/community-takeovers/latest/v1`),
   ]);
   for (const list of ds) for (const t of list || []) if (t.chainId === chain) add(t.tokenAddress);
-  for (const q of ['pump', 'pumpswap', 'solana meme']) {
+  for (const q of ['pump', 'pumpfun', 'pumpswap', 'pump.fun', 'solana pump']) {
     const s = await getJson(`${DS}/latest/dex/search?q=${encodeURIComponent(q)}`);
     for (const p of s?.pairs || []) if (p.chainId === chain) add(p.baseToken.address);
   }
@@ -44,17 +56,18 @@ export async function enrich(addrs) {
       ps.sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0));
       const main = ps[0];
       if (NOT_MEME.has(String(main.baseToken.symbol).toUpperCase())) continue;
+      if (!isPump(ca, ps)) continue; // solo coins lanzadas en pump.fun
       const sum = (f) => ps.reduce((s, p) => s + (f(p) || 0), 0);
-      const migrated = ps.some((p) => !BONDING_DEXES.has(p.dexId));
+      const migrated = ps.some((p) => !BONDING_DEXES.has(p.dexId) && (p.liquidity?.usd || 0) > 0);
       const paidDex = ps.some((p) => p.info && (p.info.imageUrl || p.info.header || (p.info.socials || []).length || (p.info.websites || []).length));
       coins.push({
         chain, ca, name: main.baseToken.name, symbol: main.baseToken.symbol, pair: main.pairAddress, dex: main.dexId,
         pools: ps.map((p) => p.pairAddress), migrated, paidDex, boosts: main.boosts?.active || 0,
         mcap: main.marketCap || main.fdv || 0, liquidity: sum((p) => p.liquidity?.usd), createdAt: Math.min(...ps.map((p) => p.pairCreatedAt || Infinity)),
-        image: (ps.find((p) => p.info?.imageUrl) || main).info?.imageUrl || null,
-        links: (() => { const i = (ps.find((p) => p.info) || {}).info || {}; const o = {}; for (const w of i.websites || []) o.web ??= w.url; for (const x of i.socials || []) o[x.type] ??= x.url; return o; })(), axiom: axiomUrl(main.pairAddress), dexscreener: main.url,
-        vol: { h1: sum((p) => p.volume?.h1), h6: sum((p) => p.volume?.h6), h24: sum((p) => p.volume?.h24) },
-        tx: Object.fromEntries(['h1', 'h6', 'h24'].map((w) => [w, { buys: sum((p) => p.txns?.[w]?.buys), sells: sum((p) => p.txns?.[w]?.sells) }])),
+        image: (ps.find((p) => p.info?.imageUrl) || main).info?.imageUrl || pumpInfo.get(ca)?.image_uri || null,
+        links: (() => { const i = (ps.find((p) => p.info) || {}).info || {}; const o = {}; for (const w of i.websites || []) o.web ??= w.url; for (const x of i.socials || []) o[x.type] ??= x.url; const pf = pumpInfo.get(ca); if (pf?.twitter) o.twitter ??= pf.twitter; if (pf?.telegram) o.telegram ??= pf.telegram; if (pf?.website) o.web ??= pf.website; return o; })(), axiom: axiomUrl(main.pairAddress), dexscreener: main.url,
+        vol: { m5: sum((p) => p.volume?.m5), h1: sum((p) => p.volume?.h1), h6: sum((p) => p.volume?.h6), h24: sum((p) => p.volume?.h24) },
+        tx: Object.fromEntries(['m5', 'h1', 'h6', 'h24'].map((w) => [w, { buys: sum((p) => p.txns?.[w]?.buys), sells: sum((p) => p.txns?.[w]?.sells) }])),
       });
     }
   }

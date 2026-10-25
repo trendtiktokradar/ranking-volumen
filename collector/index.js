@@ -1,27 +1,42 @@
 import fs from 'node:fs';
 import cfg from './config.js';
 import { getFees } from './fees.js';
+import * as H from './history.js';
 const OUT = new URL('../public/data/', import.meta.url);
 const t0 = Date.now();
 const all = [];
+const histFile = new URL('history.json', OUT);
+const hist = H.load(histFile);
 for (const name of cfg.chains) {
   const c = await import(`./chains/${name}.js`);
   const addrs = await c.discover(cfg); console.log(`[${name}] candidatos: ${addrs.length}`);
   let coins = (await c.enrich(addrs)).filter((x) => x.vol.h24 >= cfg.minVolume24hCandidate);
   coins.sort((a, b) => b.vol.h24 - a.vol.h24);
   console.log(`[${name}] con volumen 24h >= ${cfg.minVolume24hCandidate}: ${coins.length}`);
+  H.push(hist, coins, cfg.historyHours);
   let n = 0;
   for (const coin of coins) {
-    const est = { h3: coin.vol.h6 / 2, h8: coin.vol.h6 + (coin.vol.h24 - coin.vol.h6) / 9 }; // estimación si no hay velas
-    let hv = null; if (n < cfg.maxOhlcvRequests && Date.now() - t0 < cfg.timeBudgetMs) { hv = await c.hourlyVolumes(coin, cfg); n++; }
-    coin.vol.h3 = hv ? hv.h3 : est.h3; coin.vol.h8 = hv ? hv.h8 : est.h8; coin.volEstimated = !hv;
+    coin.txw = {};
+    for (const [w, h] of [['h3', 3], ['h8', 8]]) {
+      const r = H.windowFromHistory(hist, coin.ca, h);
+      if (r) { coin.vol[w] = r.vol; coin.txw[w] = { buys: r.buys, sells: r.sells }; }
+    }
+    coin.volEstimated = !(coin.txw.h3 && coin.txw.h8);
+    if (coin.volEstimated) {
+      let hv = null;
+      if (n < cfg.maxOhlcvRequests && Date.now() - t0 < cfg.timeBudgetMs) { hv = await c.hourlyVolumes(coin, cfg); n++; }
+      if (!coin.txw.h3) coin.vol.h3 = hv ? hv.h3 : coin.vol.h6 / 2;
+      if (!coin.txw.h8) coin.vol.h8 = hv ? hv.h8 : coin.vol.h6 + (coin.vol.h24 - coin.vol.h6) / 9;
+    }
     coin.fees = await getFees(coin, cfg);
   }
+  console.log(`[${name}] 3h/8h desde historial: ${coins.filter((x) => !x.volEstimated).length}, velas GT: ${n}, instantáneas: ${hist.snaps.length}`);
   all.push(...coins);
 }
 const data = { updatedAt: new Date().toISOString(), tookSec: Math.round((Date.now() - t0) / 1000), topN: cfg.topN, coins: all };
 fs.mkdirSync(OUT, { recursive: true });
 fs.writeFileSync(new URL('coins.json', OUT), JSON.stringify(data));
+fs.writeFileSync(histFile, JSON.stringify(hist));
 const cols = ['chain', 'ca', 'name', 'symbol', 'pair', 'dex', 'migrated', 'paidDex', 'mcap', 'liquidity', 'createdAt'];
 const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 const csv = [[...cols, 'vol3h', 'vol6h', 'vol8h', 'vol24h', 'buys24h', 'sells24h', 'axiom'].join(',')]
