@@ -85,3 +85,18 @@ export async function hourlyVolumes(coin, cfg) {
   const k = s(6) > 0 && coin.vol.h6 > 0 ? Math.min(3, Math.max(1, coin.vol.h6 / s(6))) : 1;
   return { h3: s(3) * k, h8: s(8) * k };
 }
+
+// ATH (market cap máximo) desde la API pública de pump.fun (ath_market_cap en USD)
+export async function pumpAth(coins) {
+  const missing = coins.filter((c) => !pumpInfo.get(c.ca)?.ath_market_cap);
+  for (let i = 0; i < missing.length; i += 10) {
+    await Promise.all(missing.slice(i, i + 10).map(async (c) => {
+      const d = await getJson(`${PF}/coins-v2/${c.ca}`, { tries: 1 }); if (d?.mint) pumpInfo.set(c.ca, { ...(pumpInfo.get(c.ca) || {}), ...d });
+    }));
+  }
+  for (const c of coins) {
+    const pf = pumpInfo.get(c.ca);
+    c.pumpAth = pf?.ath_market_cap ? { ath: pf.ath_market_cap, t: pf.ath_market_cap_timestamp || null } : null;
+    if (!c.image && pf?.image_uri) c.image = pf.image_uri;
+  }
+}

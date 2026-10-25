@@ -27,7 +27,7 @@ function row(c,isH){const st=stats(c,W),L=c.links||{},sh=c.ca.slice(0,4)+'…'+c
  <span class="b">▲ ${k(st.buys)}</span><span class="s">▼ ${k(st.sells)}</span>${c.paidDex?'<span class="pill">DEX PAID</span>':''}<span class="tag">${esc(c.dex)}</span></div>
  <div class="t2"><span class="sm">Liq ${money(c.liquidity)}</span><button class="eye" data-h="${c.ca}" title="${isH?'Restaurar':'Ocultar'}">${isH?'↺ restaurar':'⊘ ocultar'}</button></div></div>
  <div class="box"><div class="vm">V <b class="v">${money(c.vol[W])}</b>${(W==='h3'||W==='h8')&&!(c.txw&&c.txw[W])?' est.':''}&nbsp; MC <b class="mc">${money(c.mcap)}</b></div>
- <div class="sm">TX ${k(st.tx)} <span class="bar"><i style="width:${Math.round(st.ratio*100)}%"></i></span></div><div class="sm">Media ${money(st.avg)}/op</div></div></div>`}
+ ${c.ath?`<div class="sm">ATH <b class="ath">${money(c.ath.ath)}</b>${c.ath.estimated?' est.':''} <span class="s">${c.ath.ath>0?Math.round((c.mcap/c.ath.ath-1)*100)+'%':''}</span></div>`:''}<div class="sm">TX ${k(st.tx)} <span class="bar"><i style="width:${Math.round(st.ratio*100)}%"></i></span></div><div class="sm">Media ${money(st.avg)}/op</div></div></div>`}
 function render(){$('nh').textContent=Object.keys(hidden).length;view=[];const q=Q.toLowerCase();
  const m=c=>!q||c.symbol.toLowerCase().includes(q)||c.name.toLowerCase().includes(q)||c.ca.toLowerCase()===q;
  $('cols').classList.toggle('h',showHidden);for(const id of['bonding','paid','migrated'])$('l_'+id).parentElement.hidden=showHidden;$('hcol').hidden=!showHidden;
@@ -46,7 +46,7 @@ for(const key in DEF){const el=$('f_'+key);if(!el)continue;el.type==='checkbox'?
  el.oninput=()=>{F[key]=el.type==='checkbox'?el.checked:+el.value;localStorage.rvFilters2=JSON.stringify(F);render()}}
 $('reset').onclick=()=>{localStorage.removeItem('rvFilters2');location.reload()};
 $('csv').onclick=()=>{const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
- const rows=[['seccion','nombre','ticker','CA','volumen_'+W,'market_cap','liquidez','compras','ventas','media_op','creada','axiom']].concat(view.map(c=>{const st=stats(c,W);return[c._sec||'oculta',c.name,c.symbol,c.ca,Math.round(c.vol[W]),Math.round(c.mcap),Math.round(c.liquidity),st.buys,st.sells,Math.round(st.avg),new Date(c.createdAt).toISOString(),c.axiom]}));
+ const rows=[['seccion','nombre','ticker','CA','volumen_'+W,'market_cap','liquidez','compras','ventas','media_op','ath','ath_estimado','creada','axiom']].concat(view.map(c=>{const st=stats(c,W);return[c._sec||'oculta',c.name,c.symbol,c.ca,Math.round(c.vol[W]),Math.round(c.mcap),Math.round(c.liquidity),st.buys,st.sells,Math.round(st.avg),Math.round(c.ath?.ath||0),c.ath?.estimated?'si':'no',new Date(c.createdAt).toISOString(),c.axiom]}));
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}));a.download=`ranking_${W}_${new Date().toISOString().slice(0,16)}.csv`;a.click()};
 async function load(){try{const r=await fetch((window.DATA_URL||'data/coins.json')+'?t='+Date.now(),{cache:'no-store'});data=await r.json();
  $('upd').textContent='Actualizado '+new Date(data.updatedAt).toLocaleTimeString('es-ES')+' · '+data.coins.length+' analizadas';render()}catch(e){$('upd').textContent='Sin datos aún'}}
