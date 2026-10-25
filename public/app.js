@@ -1,5 +1,5 @@
-const DEF={h3:50000,h6:100000,h8:100000,h24:250000,unmigFactor:0.3,mcapUnmig:10000,mcapMig:100000,liqMig:10000,avgTrade:50,avgTradeUnmig:35,balance:0.4,minTx:100,ageOn:false,ageDays:7,feesRatio:0};
-let F={...DEF,...JSON.parse(localStorage.rvFilters3||'{}')},hidden=JSON.parse(localStorage.rvHidden||'{}');
+const DEF={h3:10000,h6:15000,h8:20000,h24:30000,unmigFactor:0.5,mcapUnmig:5000,mcapMig:20000,liqMig:5000,avgTrade:25,avgTradeUnmig:20,balance:0.3,minTx:50,ageOn:false,ageDays:7,feesRatio:0};
+let F={...DEF,...JSON.parse(localStorage.rvFilters4||'{}')},hidden=JSON.parse(localStorage.rvHidden||'{}');
 let W='h3',Q='',showHidden=false,data={coins:[]},view=[];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
@@ -46,8 +46,8 @@ document.addEventListener('click',e=>{const t=e.target;
 $('q').oninput=e=>{Q=e.target.value.trim();render()};
 $('tf').onclick=()=>$('filters').hidden=!$('filters').hidden;
 for(const key in DEF){const el=$('f_'+key);if(!el)continue;el.type==='checkbox'?el.checked=F[key]:el.value=F[key];
- el.oninput=()=>{F[key]=el.type==='checkbox'?el.checked:+el.value;localStorage.rvFilters3=JSON.stringify(F);render()}}
-$('reset').onclick=()=>{localStorage.removeItem('rvFilters3');location.reload()};
+ el.oninput=()=>{F[key]=el.type==='checkbox'?el.checked:+el.value;localStorage.rvFilters4=JSON.stringify(F);render()}}
+$('reset').onclick=()=>{localStorage.removeItem('rvFilters4');location.reload()};
 $('csv').onclick=()=>{const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
  const rows=[['seccion','nombre','ticker','CA','volumen_'+W,'market_cap','liquidez','compras','ventas','media_op','dex_pagado','migrada','ath','ath_estimado','creada','axiom']].concat(view.map(c=>{const st=stats(c,W);return[c._sec||'oculta',c.name,c.symbol,c.ca,Math.round(c.vol[W]),Math.round(c.mcap),Math.round(c.liquidity),st.buys,st.sells,Math.round(st.avg),c.paidAt?new Date(c.paidAt).toISOString():'',c.migratedAt?new Date(c.migratedAt).toISOString():'',Math.round(c.ath?.ath||0),c.ath?.estimated?'si':'no',new Date(c.createdAt).toISOString(),c.axiom]}));
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}));a.download=`ranking_${W}_${new Date().toISOString().slice(0,16)}.csv`;a.click()};
