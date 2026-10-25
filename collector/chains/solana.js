@@ -4,6 +4,8 @@ const GT = 'https://api.geckoterminal.com/api/v2/networks/solana';
 // DEX de bonding curve (no migradas)
 export const BONDING_DEXES = new Set(['pumpfun', 'launchlab', 'raydium-launchlab', 'meteora-dbc', 'moonshot', 'boop', 'believe', 'bonk', 'letsbonk']);
 export const chain = 'solana';
+// Tokens que no son memecoins (wrapped, stables, LST): fuera del ranking
+export const NOT_MEME = new Set(['SOL','WSOL','USDC','USDT','USD1','PYUSD','USDS','WETH','ETH','CBBTC','WBTC','BTC','JITOSOL','MSOL','BSOL','JUPSOL','INF','JLP','EURC','USDG','FDUSD','USDE','XAUT','PAXG']);
 export const axiomUrl = (pair) => `https://axiom.trade/meme/${pair}`;
 
 export async function discover(cfg) {
@@ -41,6 +43,7 @@ export async function enrich(addrs) {
     for (const [ca, ps] of byToken) {
       ps.sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0));
       const main = ps[0];
+      if (NOT_MEME.has(String(main.baseToken.symbol).toUpperCase())) continue;
       const sum = (f) => ps.reduce((s, p) => s + (f(p) || 0), 0);
       const migrated = ps.some((p) => !BONDING_DEXES.has(p.dexId));
       const paidDex = ps.some((p) => p.info && (p.info.imageUrl || p.info.header || (p.info.socials || []).length || (p.info.websites || []).length));
