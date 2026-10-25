@@ -42,7 +42,7 @@ function render(){$('cols').hidden=MODE!=='rank';$('pcol').hidden=MODE!=='paid';
  for(const s of['bonding','paid','migrated']){const l=data.coins.filter(c=>!hidden[c.ca]&&inSection(c,s)&&m(c)&&passes(c)).sort((a,b)=>b.vol[W]-a.vol[W]).slice(0,data.topN||50);
   l.forEach(c=>view.push({...c,_sec:s}));$('c_'+s).textContent=l.length;$('l_'+s).innerHTML=l.map(c=>row(c,false,s)).join('')||'<div class="empty">Ninguna pasa los filtros.</div>'}}
 document.addEventListener('click',e=>{const t=e.target;
- if(t.dataset.m){MODE=t.dataset.m;return render()}
+ if(t.dataset.m){MODE=t.dataset.m;history.replaceState(null,'',MODE==='paid'?'#dexpaid':'#');return render()}
  if(t.dataset.w){W=t.dataset.w;document.querySelectorAll('#wins button').forEach(b=>b.classList.toggle('on',b===t));return render()}
  if(t.dataset.ca){navigator.clipboard?.writeText(t.dataset.ca);const o=t.textContent;t.textContent='Copiado';setTimeout(()=>t.textContent=o,900);return}
  if(t.dataset.h){const ca=t.dataset.h;hidden[ca]?delete hidden[ca]:hidden[ca]=Date.now();localStorage.rvHidden=JSON.stringify(hidden);return render()}
@@ -58,4 +58,5 @@ $('csv').onclick=()=>{const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}));a.download=`ranking_${W}_${new Date().toISOString().slice(0,16)}.csv`;a.click()};
 async function load(){try{const r=await fetch((window.DATA_URL||'data/coins.json')+'?t='+Date.now(),{cache:'no-store'});data=await r.json();
  $('upd').textContent='Actualizado '+new Date(data.updatedAt).toLocaleTimeString('es-ES')+' · '+data.coins.length+' analizadas';render()}catch(e){$('upd').textContent='Sin datos aún'}}
+if(location.hash==='#dexpaid')MODE='paid';
 load();setInterval(load,60000);
