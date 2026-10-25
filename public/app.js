@@ -13,7 +13,7 @@ function stats(c,w){const x=c.txw&&c.txw[w];if(x){const n=x.buys+x.sells;return{
 const WH={h3:3,h6:6,h8:8,h24:24};
 const evTime=(c,s)=>s==='bonding'?c.createdAt:s==='paid'?c.paidAt:c.migratedAt;
 const inWin=t=>t&&isFinite(t)&&Date.now()-t<=WH[W]*36e5;
-const inSection=(c,s)=>(s==='bonding'?!c.migrated&&!c.paidDex:s==='paid'?c.paidDex:c.migrated)&&inWin(evTime(c,s));
+const inSection=(c,s)=>(s==='bonding'?!c.migrated&&!c.paidDex:s==='paid'?c.paidDex&&!c.migrated:c.migrated)&&inWin(evTime(c,s));
 function passes(c){const u=!c.migrated,st=stats(c,W);
  if((c.vol[W]||0)<F[W]*(u?F.unmigFactor:1)||c.mcap<(u?F.mcapUnmig:F.mcapMig))return false;
  if(!u&&c.liquidity<F.liqMig)return false;

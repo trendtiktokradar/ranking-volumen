@@ -14,6 +14,7 @@ let athDb = {}; try { athDb = JSON.parse(fs.readFileSync(athFile)); } catch {}
 for (const name of cfg.chains) {
   const c = await import(`./chains/${name}.js`);
   const addrs = await c.discover(cfg);
+  for (const [ca, t] of c.profileSeen || []) { const e = ev[ca] || (ev[ca] = { chain: name }); e.firstSeen ??= t; e.seen = t; }
   for (const ca in ev) if (ev[ca].chain === name && Date.now() - (ev[ca].seen || 0) < 26 * 36e5 && !addrs.includes(ca)) addrs.push(ca); // perfiles pagados vistos en las últimas 26 h console.log(`[${name}] candidatos: ${addrs.length}`);
   let coins = (await c.enrich(addrs)).filter((x) => x.vol.h24 >= cfg.minVolume24hCandidate);
   coins.sort((a, b) => b.vol.h24 - a.vol.h24);
@@ -21,21 +22,23 @@ for (const name of cfg.chains) {
   if (c.pumpAth) await c.pumpAth(coins);
   // Eventos: cuándo se pagó el DEX y cuándo migró (persistido en events.json)
   let nOrders = 0;
-  const needPaid = coins.filter((x) => x.paidDex && !(ev[x.ca] && 'paidAt' in ev[x.ca])).sort((a, b) => b.createdAt - a.createdAt);
-  for (const x of needPaid) {
-    if (nOrders >= cfg.maxOrdersRequests) break;
-    const t = await c.paidAt(x.ca); nOrders++;
-    if (t !== undefined) ev[x.ca] = { ...(ev[x.ca] || {}), chain: name, paidAt: t ?? Date.now(), paidEst: t == null };
-    await new Promise((r) => setTimeout(r, 1100));
-  }
+  const needPaid = coins.filter((x) => x.paidDex && !(ev[x.ca] && "paidAt" in ev[x.ca])).sort((a, b) => (a.migrated - b.migrated) || (b.createdAt - a.createdAt)); // primero las que siguen en curva
+  const ordersJob = (async () => {
+    for (const x of needPaid) {
+      if (nOrders >= cfg.maxOrdersRequests || Date.now() - t0 > cfg.timeBudgetMs) break;
+      const t = await c.paidAt(x.ca); nOrders++;
+      if (t !== undefined) { const e = ev[x.ca] || (ev[x.ca] = { chain: name }); e.firstSeen ??= Date.now(); e.paidAt = t ?? e.firstSeen; e.paidEst = t == null; x.paidAt = e.paidAt; x.paidEst = e.paidEst; }
+      await new Promise((r) => setTimeout(r, 1050));
+    }
+  })();
   for (const x of coins) {
     const e = ev[x.ca] || (ev[x.ca] = { chain: name });
-    if (x.paidDex) e.seen = Date.now();
+    if (x.paidDex) { e.seen = Date.now(); e.firstSeen ??= Date.now(); }
     if (x.migratedAt && !e.migratedAt) e.migratedAt = x.migratedAt;
     x.paidAt = x.paidDex ? e.paidAt ?? null : null; x.paidEst = !!e.paidEst; x.migratedAt = e.migratedAt || x.migratedAt || null;
   }
   for (const ca in ev) if (!ev[ca].paidAt && !ev[ca].migratedAt && Date.now() - (ev[ca].seen || 0) > 26 * 36e5) delete ev[ca];
-  console.log(`[${name}] órdenes DEX consultadas: ${nOrders}, pendientes: ${Math.max(0, needPaid.length - nOrders)}`);
+
   for (const x of coins) { // ATH: max(pump.fun, guardado, MC actual); nunca baja
     const prev = athDb[x.ca] || { ath: 0 };
     let cur = { ath: prev.ath, t: prev.t, src: prev.src };
@@ -61,6 +64,9 @@ for (const name of cfg.chains) {
     }
     coin.fees = await getFees(coin, cfg);
   }
+  await ordersJob;
+  for (const x of coins) { const e = ev[x.ca]; if (x.paidDex && e && 'paidAt' in e) { x.paidAt = e.paidAt; x.paidEst = !!e.paidEst; } }
+  console.log(`[${name}] órdenes DEX consultadas: ${nOrders}, pendientes: ${Math.max(0, needPaid.length - nOrders)}`);
   console.log(`[${name}] 3h/8h desde historial: ${coins.filter((x) => !x.volEstimated).length}, velas GT: ${n}, instantáneas: ${hist.snaps.length}`);
   all.push(...coins);
 }

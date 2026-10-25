@@ -13,6 +13,7 @@ export const pumpMints = new Set();
 const pumpInfo = new Map();
 export const isPump = (ca, pairs = []) => ca.endsWith('pump') || pumpMints.has(ca) || pairs.some((p) => p.dexId === 'pumpfun');
 
+export const profileSeen = new Map(); // perfiles DEX vistos en esta ejecución
 export async function discover(cfg) {
   const addrs = new Set();
   // pump.fun (API pública del frontend, sin auth)
@@ -20,14 +21,19 @@ export async function discover(cfg) {
   for (const complete of [false, true]) for (let off = 0; off < cfg.pumpPages * 50; off += 50)
     pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=market_cap&order=DESC&includeNsfw=true&complete=${complete}`);
   for (let off = 0; off < cfg.pumpPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=last_trade_timestamp&order=DESC&includeNsfw=true`);
-  const pfs = await Promise.all(pfUrls.map((u) => getJson(u)));
+  // graduadas recientes: completas ordenadas por creación y por última operación
+  for (let off = 0; off < cfg.pumpGradPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=created_timestamp&order=DESC&includeNsfw=true&complete=true`);
+  for (let off = 0; off < cfg.pumpGradPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=last_trade_timestamp&order=DESC&includeNsfw=true&complete=true`);
+  // en curva, recientes
+  for (let off = 0; off < cfg.pumpPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=created_timestamp&order=DESC&includeNsfw=true&complete=false`);
+  const pfs = []; for (let i = 0; i < pfUrls.length; i += 8) pfs.push(...await Promise.all(pfUrls.slice(i, i + 8).map((u) => getJson(u))));
   for (const l of pfs) for (const c of Array.isArray(l) ? l : []) if (c.mint && (c.usd_market_cap || 0) >= cfg.pumpMinMcap) { pumpMints.add(c.mint); addrs.add(c.mint); pumpInfo.set(c.mint, c); }
   const add = (a) => a && !a.startsWith('So1111') && addrs.add(a);
   const ds = await Promise.all([
-    getJson(`${DS}/token-profiles/latest/v1`), getJson(`${DS}/token-boosts/latest/v1`),
+    getJson(`${DS}/token-profiles/latest/v1`), getJson(`${DS}/token-profiles/recent-updates/v1`), getJson(`${DS}/token-boosts/latest/v1`),
     getJson(`${DS}/token-boosts/top/v1`), getJson(`${DS}/community-takeovers/latest/v1`),
   ]);
-  for (const list of ds) for (const t of list || []) if (t.chainId === chain) add(t.tokenAddress);
+  for (const [i, list] of ds.entries()) for (const t of list || []) if (t.chainId === chain) { add(t.tokenAddress); if (i <= 1) profileSeen.set(t.tokenAddress, Date.now()); }
   for (const q of ['pump', 'pumpfun', 'pumpswap', 'pump.fun', 'solana pump']) {
     const s = await getJson(`${DS}/latest/dex/search?q=${encodeURIComponent(q)}`);
     for (const p of s?.pairs || []) if (p.chainId === chain) add(p.baseToken.address);
@@ -45,8 +51,8 @@ export async function discover(cfg) {
 
 export async function enrich(addrs) {
   const coins = [];
-  for (let i = 0; i < addrs.length; i += 30) {
-    const pairs = await getJson(`${DS}/tokens/v1/${chain}/${addrs.slice(i, i + 30).join(',')}`);
+  for (let i = 0; i < addrs.length; i += 120) {
+    const pairs = (await Promise.all([0, 30, 60, 90].map((o) => addrs.slice(i + o, i + o + 30)).filter((l) => l.length).map((l) => getJson(`${DS}/tokens/v1/${chain}/${l.join(',')}`)))).flat();
     const byToken = new Map();
     for (const p of pairs || []) {
       if (p.chainId !== chain) continue;
