@@ -1,0 +1,28 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ranking Volumen</title><link rel="stylesheet" href="style.css"></head><body>
+<header><div class="brand">Ranking Volumen <span class="chain">SOL</span></div>
+<div id="wins"><button data-w="h3" class="on">3h</button><button data-w="h6">6h</button><button data-w="h8">8h</button><button data-w="h24">24h</button></div>
+<input id="q" placeholder="Buscar por ticker o nombre">
+<span class="sp"></span><span id="upd">Cargando…</span>
+<button id="hid" title="Ocultas">👁‍🗨 <span id="nh">0</span></button><button id="csv">CSV</button><button id="tf" title="Filtros">⚙ Filtros</button></header>
+<section id="filters" hidden>
+ <label>Vol. mín. 3h $<input type="number" id="f_h3"></label><label>Vol. mín. 6h $<input type="number" id="f_h6"></label>
+ <label>Vol. mín. 8h $<input type="number" id="f_h8"></label><label>Vol. mín. 24h $<input type="number" id="f_h24"></label>
+ <label>Factor vol. sin migrar<input type="number" step="0.1" id="f_unmigFactor"></label>
+ <label>MC mín. sin migrar $<input type="number" id="f_mcapUnmig"></label><label>MC mín. migradas $<input type="number" id="f_mcapMig"></label>
+ <label>Liquidez mín. migradas $<input type="number" id="f_liqMig"></label>
+ <label>Media mín. por operación $<input type="number" id="f_avgTrade"></label>
+ <label>Equilibrio compras/ventas (0–1)<input type="number" step="0.05" id="f_balance"></label>
+ <label>Mín. transacciones<input type="number" id="f_minTx"></label>
+ <label><span><input type="checkbox" id="f_ageOn"> Edad máx. (días)</span><input type="number" id="f_ageDays"></label>
+ <label>Fees/volumen mín. (Helius, desactivado)<input type="number" step="0.001" id="f_feesRatio"></label>
+ <button id="reset">Restablecer</button>
+</section>
+<main id="cols">
+ <div class="col"><div class="ch">Sin migrar <span id="c_bonding"></span></div><div class="list" id="l_bonding"></div></div>
+ <div class="col"><div class="ch">DEX pagado <span id="c_paid"></span></div><div class="list" id="l_paid"></div></div>
+ <div class="col"><div class="ch">Migradas <span id="c_migrated"></span></div><div class="list" id="l_migrated"></div></div>
+ <div class="col" id="hcol" hidden><div class="ch">Ocultas</div><div class="list" id="l_hidden"></div></div>
+</main>
+<footer>DexScreener + GeckoTerminal · se recalcula cada ~5 min · 3h/8h desde velas horarias (“est.” = estimado) · TX/compras/ventas: 3h y 6h usan datos de 6h, 8h y 24h usan datos de 24h.</footer>
+<script src="config.js"></script><script src="app.js"></script></body></html>

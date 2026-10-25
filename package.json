@@ -1,0 +1,1 @@
+{"name":"ranking-volumen","private":true,"type":"module","scripts":{"collect":"node collector/index.js","dev":"npx --yes serve public -l 3000"},"engines":{"node":">=20"}}
