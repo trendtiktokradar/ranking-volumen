@@ -32,3 +32,5 @@ input[type=number]{background:var(--bg);color:var(--txt);border:1px solid var(--
 [hidden]{display:none!important}
 .ath{color:#f5c542}
 .evt{color:#f5c542;font-size:11px}.ch small{color:var(--mut);font-weight:400;font-size:11px}
+#modes{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}#modes button{border:0;border-radius:0;color:var(--mut)}#modes button.on{background:#16a34a;color:#fff}
+#pcol{flex:1;min-height:0;display:flex}#pcol .col{flex:1}

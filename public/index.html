@@ -1,12 +1,12 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ranking Volumen</title><link rel="stylesheet" href="style.css"></head><body>
-<header><div class="brand">Ranking Volumen <span class="chain">SOL</span></div>
-<div id="wins"><button data-w="h3" class="on">3h</button><button data-w="h6">6h</button><button data-w="h8">8h</button><button data-w="h24">24h</button></div>
+<header><div class="brand">Ranking Volumen <span class="chain">SOL</span></div><div id="modes"><button data-m="rank" class="on">Ranking Volumen</button><button data-m="paid">DEX Paid</button></div>
+<div id="wins"><button data-w="h1">1h</button><button data-w="h3" class="on">3h</button><button data-w="h6">6h</button><button data-w="h8">8h</button><button data-w="h24">24h</button></div>
 <input id="q" placeholder="Buscar por ticker o nombre">
 <span class="sp"></span><span id="upd">Cargando…</span>
 <button id="hid" title="Ocultas">👁‍🗨 <span id="nh">0</span></button><button id="csv">CSV</button><button id="tf" title="Filtros">⚙ Filtros</button></header>
 <section id="filters" hidden>
- <label>Vol. mín. 3h $<input type="number" id="f_h3"></label><label>Vol. mín. 6h $<input type="number" id="f_h6"></label>
+ <label>Vol. mín. 1h $<input type="number" id="f_h1"></label><label>Vol. mín. 3h $<input type="number" id="f_h3"></label><label>Vol. mín. 6h $<input type="number" id="f_h6"></label>
  <label>Vol. mín. 8h $<input type="number" id="f_h8"></label><label>Vol. mín. 24h $<input type="number" id="f_h24"></label>
  <label>Factor vol. sin migrar<input type="number" step="0.1" id="f_unmigFactor"></label>
  <label>MC mín. sin migrar $<input type="number" id="f_mcapUnmig"></label><label>MC mín. migradas $<input type="number" id="f_mcapMig"></label>
@@ -20,9 +20,10 @@
 </section>
 <main id="cols">
  <div class="col"><div class="ch">Sin migrar <small>creadas en la ventana</small> <span id="c_bonding"></span></div><div class="list" id="l_bonding"></div></div>
- <div class="col"><div class="ch">DEX pagado <small>pagado en la ventana</small> <span id="c_paid"></span></div><div class="list" id="l_paid"></div></div>
+ <div class="col"><div class="ch">DEX pagado <small>en curva, con volumen en la ventana</small> <span id="c_paid"></span></div><div class="list" id="l_paid"></div></div>
  <div class="col"><div class="ch">Migradas <small>migradas en la ventana</small> <span id="c_migrated"></span></div><div class="list" id="l_migrated"></div></div>
  <div class="col" id="hcol" hidden><div class="ch">Ocultas</div><div class="list" id="l_hidden"></div></div>
 </main>
+<main id="pcol" hidden><div class="col"><div class="ch">DEX Paid <small>todas las coins pump.fun que pagaron DEX en la ventana, más recientes primero · sin filtros</small> <span id="c_dexpaid"></span></div><div class="list" id="l_dexpaid"></div></div></main>
 <footer>DexScreener + GeckoTerminal · se recalcula cada ~5 min · 3h/8h desde velas horarias (“est.” = estimado) · TX/compras/ventas: 3h y 6h usan datos de 6h, 8h y 24h usan datos de 24h.</footer>
 <script src="config.js"></script><script src="app.js"></script></body></html>

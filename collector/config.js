@@ -3,7 +3,7 @@ export default {
   chains: ['solana'],            // añadir 'base', 'bsc', 'ethereum'... cuando exista collector/chains/<chain>.js
   topN: 50,
   pumpPages: 4,
-  pumpGradPages: 12,            // graduadas (complete=true) recientes                 // páginas de 50 de la API de pump.fun por orden
+  pumpGradPages: 30,            // graduadas (complete=true) recientes                 // páginas de 50 de la API de pump.fun por orden
   pumpMinMcap: 8000,
   historyHours: 9,              // historial para 3h/8h exactas (24h y 6h vienen de DexScreener)
   // Pre-filtro del colector (generoso): los filtros finos se ajustan en la web.

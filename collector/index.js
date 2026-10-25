@@ -16,13 +16,13 @@ for (const name of cfg.chains) {
   const addrs = await c.discover(cfg);
   for (const [ca, t] of c.profileSeen || []) { const e = ev[ca] || (ev[ca] = { chain: name }); e.firstSeen ??= t; e.seen = t; }
   for (const ca in ev) if (ev[ca].chain === name && Date.now() - (ev[ca].seen || 0) < 26 * 36e5 && !addrs.includes(ca)) addrs.push(ca); // perfiles pagados vistos en las últimas 26 h console.log(`[${name}] candidatos: ${addrs.length}`);
-  let coins = (await c.enrich(addrs)).filter((x) => x.vol.h24 >= cfg.minVolume24hCandidate);
+  let coins = (await c.enrich(addrs)).filter((x) => x.vol.h24 >= cfg.minVolume24hCandidate || x.paidDex); // las de DEX pagado se guardan siempre (pestaña DEX Paid)
   coins.sort((a, b) => b.vol.h24 - a.vol.h24);
   console.log(`[${name}] con volumen 24h >= ${cfg.minVolume24hCandidate}: ${coins.length}`);
   if (c.pumpAth) await c.pumpAth(coins);
   // Eventos: cuándo se pagó el DEX y cuándo migró (persistido en events.json)
   let nOrders = 0;
-  const needPaid = coins.filter((x) => x.paidDex && !(ev[x.ca] && "paidAt" in ev[x.ca])).sort((a, b) => (a.migrated - b.migrated) || (b.createdAt - a.createdAt)); // primero las que siguen en curva
+  const needPaid = coins.filter((x) => x.paidDex && !(ev[x.ca] && "paidAt" in ev[x.ca])).sort((a, b) => b.createdAt - a.createdAt); // más nuevas primero (backlog se vacía en pocas ejecuciones)
   const ordersJob = (async () => {
     for (const x of needPaid) {
       if (nOrders >= cfg.maxOrdersRequests || Date.now() - t0 > cfg.timeBudgetMs) break;
