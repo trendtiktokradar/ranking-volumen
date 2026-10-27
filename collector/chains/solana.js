@@ -24,10 +24,15 @@ export async function discover(cfg) {
   // graduadas recientes: completas ordenadas por creación y por última operación
   for (let off = 0; off < cfg.pumpGradPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=created_timestamp&order=DESC&includeNsfw=true&complete=true`);
   for (let off = 0; off < cfg.pumpGradPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=last_trade_timestamp&order=DESC&includeNsfw=true&complete=true`);
-  // en curva, recientes
-  for (let off = 0; off < cfg.pumpPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=created_timestamp&order=DESC&includeNsfw=true&complete=false`);
+  // en curva (sin bondear): las que se están operando ahora y las recién creadas. La API corta en offset ~2000.
+  for (const sort of ['last_trade_timestamp', 'created_timestamp'])
+    for (let off = 0; off < cfg.pumpBondingPages * 50; off += 50) pfUrls.push(`${PF}/coins?offset=${off}&limit=50&sort=${sort}&order=DESC&includeNsfw=true&complete=false`);
   const pfs = []; for (let i = 0; i < pfUrls.length; i += 8) pfs.push(...await Promise.all(pfUrls.slice(i, i + 8).map((u) => getJson(u))));
-  for (const l of pfs) for (const c of Array.isArray(l) ? l : []) if (c.mint && (c.usd_market_cap || 0) >= cfg.pumpMinMcap) { pumpMints.add(c.mint); addrs.add(c.mint); pumpInfo.set(c.mint, c); }
+  // Graduadas: MC actual >= pumpMinMcap. En curva y creadas < 26 h: también si su ATH llegó a bondingMinAth (aunque ahora haya caído).
+  const keepPf = (c) => (c.usd_market_cap || 0) >= cfg.pumpMinMcap || (!c.complete && Date.now() - (c.created_timestamp || 0) < 26 * 36e5 && ((c.usd_market_cap || 0) >= cfg.bondingMinMcap || (c.ath_market_cap || 0) >= cfg.bondingMinAth));
+  let nb = 0;
+  for (const l of pfs) for (const c of Array.isArray(l) ? l : []) if (c.mint && keepPf(c)) { if (!addrs.has(c.mint) && !c.complete) nb++; pumpMints.add(c.mint); addrs.add(c.mint); pumpInfo.set(c.mint, c); }
+  console.log(`[pump.fun] peticiones: ${pfUrls.length}, fallidas: ${pfs.filter((l) => !Array.isArray(l)).length}, candidatas en curva: ${nb}`);
   const add = (a) => a && !a.startsWith('So1111') && addrs.add(a);
   const ds = await Promise.all([
     getJson(`${DS}/token-profiles/latest/v1`), getJson(`${DS}/token-profiles/recent-updates/v1`), getJson(`${DS}/token-boosts/latest/v1`),
@@ -40,7 +45,10 @@ export async function discover(cfg) {
   }
   const gtUrls = [];
   for (let pg = 1; pg <= 2; pg++) gtUrls.push(`${GT}/trending_pools?page=${pg}`, `${GT}/pools?sort=h24_volume_usd_desc&page=${pg}`,
-    `${GT}/dexes/pump-fun/pools?sort=h24_volume_usd_desc&page=${pg}`, `${GT}/dexes/pumpswap/pools?sort=h24_volume_usd_desc&page=${pg}`);
+    `${GT}/dexes/pumpswap/pools?sort=h24_volume_usd_desc&page=${pg}`);
+  // bonding curve de pump.fun: top por volumen 24h (máx. 10 páginas de 20) y por nº de operaciones
+  for (let pg = 1; pg <= cfg.gtPumpPages; pg++) gtUrls.push(`${GT}/dexes/pump-fun/pools?sort=h24_volume_usd_desc&page=${pg}`);
+  for (let pg = 1; pg <= cfg.gtPumpTxPages; pg++) gtUrls.push(`${GT}/dexes/pump-fun/pools?sort=h24_tx_count_desc&page=${pg}`);
   gtUrls.push(`${GT}/new_pools?page=1`);
   for (const u of gtUrls) {
     const r = await getJson(u, { gecko: true, delay: cfg.geckoDelayMs });

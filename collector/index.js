@@ -15,7 +15,8 @@ for (const name of cfg.chains) {
   const c = await import(`./chains/${name}.js`);
   const addrs = await c.discover(cfg);
   for (const [ca, t] of c.profileSeen || []) { const e = ev[ca] || (ev[ca] = { chain: name }); e.firstSeen ??= t; e.seen = t; }
-  for (const ca in ev) if (ev[ca].chain === name && Date.now() - (ev[ca].seen || 0) < 26 * 36e5 && !addrs.includes(ca)) addrs.push(ca); // perfiles pagados vistos en las últimas 26 h console.log(`[${name}] candidatos: ${addrs.length}`);
+  for (const ca in ev) if (ev[ca].chain === name && Date.now() - (ev[ca].seen || 0) < 26 * 36e5 && !addrs.includes(ca)) addrs.push(ca); // perfiles pagados vistos en las últimas 26 h
+  console.log(`[${name}] candidatos: ${addrs.length}`);
   let coins = (await c.enrich(addrs)).filter((x) => x.vol.h24 >= cfg.minVolume24hCandidate || x.paidDex); // las de DEX pagado se guardan siempre (pestaña DEX Paid)
   coins.sort((a, b) => b.vol.h24 - a.vol.h24);
   console.log(`[${name}] con volumen 24h >= ${cfg.minVolume24hCandidate}: ${coins.length}`);
@@ -70,6 +71,7 @@ for (const name of cfg.chains) {
   console.log(`[${name}] 3h/8h desde historial: ${coins.filter((x) => !x.volEstimated).length}, velas GT: ${n}, instantáneas: ${hist.snaps.length}`);
   all.push(...coins);
 }
+console.log(`en curva sin DEX pagado: ${all.filter((x) => !x.migrated && !x.paidDex).length}`);
 const data = { updatedAt: new Date().toISOString(), tookSec: Math.round((Date.now() - t0) / 1000), topN: cfg.topN, coins: all };
 fs.mkdirSync(OUT, { recursive: true });
 fs.writeFileSync(new URL('coins.json', OUT), JSON.stringify(data));
