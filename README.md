@@ -15,3 +15,8 @@ node collector/index.js
 npx serve public -l 3000   # o: python3 -m http.server 3000 -d public
 ```
 Autor de los commits: en GitHub → Settings → Variables, `GIT_AUTHOR_NAME` / `GIT_AUTHOR_EMAIL` (opcional; por defecto el bot de GitHub Actions).
+
+## Botón «Actualizar»
+La web llama a `/api/refresh` (función serverless de Vercel en `api/refresh.js`), que lanza el workflow `collect.yml`.
+Necesita en Vercel → Settings → Environment Variables: `GH_DISPATCH_TOKEN` = token de GitHub con permiso
+**Actions: Read and write** sobre este repo. Cooldown: no relanza si hay una ejecución en marcha o de hace <10 min.

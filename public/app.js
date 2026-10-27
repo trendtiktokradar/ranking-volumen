@@ -67,5 +67,24 @@ $('csv').onclick=()=>{const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}));a.download=`ranking_${W}_${new Date().toISOString().slice(0,16)}.csv`;a.click()};
 async function load(){try{const r=await fetch((window.DATA_URL||'data/coins.json')+'?t='+Date.now(),{cache:'no-store'});data=await r.json();
  $('upd').textContent='Actualizado '+new Date(data.updatedAt).toLocaleTimeString('es-ES')+' · '+data.coins.length+' analizadas';render()}catch(e){$('upd').textContent='Sin datos aún'}}
+// Botón Actualizar: lanza el workflow vía /api/refresh y espera a que termine
+let rfTimer=null;
+const rfMsg=(t,err)=>{const m=$('rfmsg');m.textContent=t||'';m.classList.toggle('err',!!err)};
+async function rfApi(method){let r,j={};try{r=await fetch('/api/refresh',{method,cache:'no-store'});j=await r.json()}catch(e){throw new Error(r?`Error ${r.status} en /api/refresh`:'No se pudo contactar con /api/refresh')}
+ if(!r.ok||j.ok===false)throw new Error(j.error||`Error ${r.status}`);return j}
+function rfDone(t,err){clearInterval(rfTimer);rfTimer=null;$('rf').disabled=false;rfMsg(t,err)}
+function rfPoll(match){const t0=Date.now();rfTimer=setInterval(async()=>{try{
+ const {run}=await rfApi('GET');
+ if(!run||!match(run)){if(Date.now()-t0>3*60e3)rfDone('No aparece la ejecución en GitHub',true);return}
+ if(run.status!=='completed')return rfMsg('Actualizando… (~4 min)');
+ if(run.conclusion==='success'){await new Promise(r=>setTimeout(r,5000));await load();rfDone('✓ Datos actualizados')}
+ else rfDone('La actualización falló ('+(run.conclusion||'error')+')',true)
+ }catch(e){rfDone(e.message,true)}},20000)}
+$('rf').onclick=async()=>{if(rfTimer)return;$('rf').disabled=true;rfMsg('Lanzando…');try{
+ const j=await rfApi('POST');
+ if(j.dispatched){const since=new Date(j.since).getTime()-60e3;rfMsg('Actualizando… (~4 min)');rfPoll(run=>new Date(run.createdAt).getTime()>=since)}
+ else if(j.run&&j.run.status!=='completed'){rfMsg(j.message+'… (~4 min)');rfPoll(run=>run.id===j.run.id)}
+ else rfDone(j.message||'No se lanzó')
+ }catch(e){rfDone(e.message,true)}};
 if(location.hash==='#dexpaid')MODE='paid';
 load();setInterval(load,60000);
