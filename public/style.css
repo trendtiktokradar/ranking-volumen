@@ -34,3 +34,5 @@ input[type=number]{background:var(--bg);color:var(--txt);border:1px solid var(--
 .evt{color:#f5c542;font-size:11px}.ch small{color:var(--mut);font-weight:400;font-size:11px}
 #modes{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}#modes button{border:0;border-radius:0;color:var(--mut)}#modes button.on{background:#16a34a;color:#fff}
 #pcol{flex:1;min-height:0;display:flex}#pcol .col{flex:1}
+.athb{display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:6px 10px;border-bottom:1px solid var(--line);color:var(--mut);font-size:11px}.athb button{padding:2px 8px;font-size:11px;color:var(--mut)}.athb button.on{background:#3a2f0b;border-color:#f5c542;color:#f5c542}
+.bh{position:sticky;top:0;z-index:1;background:#14120a;color:#f5c542;font-size:11px;font-weight:700;padding:4px 10px;border-bottom:1px solid var(--line)}.bh span{color:var(--mut);font-weight:400;margin-left:4px}

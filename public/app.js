@@ -1,4 +1,4 @@
-const DEF={h1:2000,h3:5000,h6:8000,h8:10000,h24:15000,unmigFactor:0.5,mcapUnmig:5000,mcapMig:0,liqMig:0,avgTrade:20,avgTradeUnmig:20,balance:0.25,minTx:30,ageOn:false,ageDays:7,feesRatio:0};
+const DEF={h1:2000,h3:5000,h6:8000,h8:10000,h24:15000,unmigFactor:0.5,mcapUnmig:5000,mcapMig:0,liqMig:0,avgTrade:20,avgTradeUnmig:20,balance:0.25,minTx:30,ageOn:false,ageDays:7,feesRatio:0,athMin:0};
 let F={...DEF,...JSON.parse(localStorage.rvFilters6||'{}')},hidden=JSON.parse(localStorage.rvHidden||'{}');
 let MODE='rank',W='h3',Q='',showHidden=false,data={coins:[]},view=[];
 const $=id=>document.getElementById(id);
@@ -22,6 +22,12 @@ function passes(c){const u=!c.migrated,st=stats(c,W);
  if(F.ageOn&&Date.now()-c.createdAt>F.ageDays*864e5)return false;
  if(F.feesRatio>0&&c.fees?.feesRatio!=null&&c.fees.feesRatio<F.feesRatio)return false;
  return true}
+// Sin migrar: ATH mínimo y bloques por ATH (USD)
+const ATHB=[[55e3,Infinity,'55k+'],[5e4,55e3,'50–55k'],[4e4,5e4,'40–50k'],[3e4,4e4,'30–40k'],[2e4,3e4,'20–30k'],[1e4,2e4,'10–20k'],[0,1e4,'<10k']];
+const athV=c=>c.ath&&c.ath.ath>0?c.ath.ath:null;
+const athOk=c=>!(F.athMin>0)||(athV(c)!=null&&athV(c)>=F.athMin);
+function athBlocks(l){const out=ATHB.filter(([lo,hi])=>hi>(F.athMin||0)).map(([lo,hi,lb])=>[lb,l.filter(c=>{const a=athV(c);return a!=null&&a>=lo&&a<hi})]);
+ if(!(F.athMin>0))out.push(['sin datos',l.filter(c=>athV(c)==null)]);return out.filter(([,g])=>g.length)}
 const ICON={web:'🌐',twitter:'𝕏',telegram:'✈',discord:'◎'};
 function row(c,isH,s){const evl=s==='paid'?`<span class="evt">DEX pagado hace ${age(c.paidAt)}${c.paidEst?' (aprox.)':''}</span>`:s==='migrated'?`<span class="evt">migró hace ${age(c.migratedAt)}</span>`:'';const st=stats(c,W),L=c.links||{},sh=c.ca.slice(0,4)+'…'+c.ca.slice(-4);
  return`<div class="r" data-ax="${c.axiom}">
@@ -40,10 +46,12 @@ function render(){$('cols').hidden=MODE!=='rank';$('pcol').hidden=MODE!=='paid';
  const m=c=>!q||c.symbol.toLowerCase().includes(q)||c.name.toLowerCase().includes(q)||c.ca.toLowerCase()===q;
  $('cols').classList.toggle('h',showHidden);for(const id of['bonding','paid','migrated'])$('l_'+id).parentElement.hidden=showHidden;$('hcol').hidden=!showHidden;
  if(showHidden){const l=data.coins.filter(c=>hidden[c.ca]&&m(c));view=l;$('l_hidden').innerHTML=l.map(c=>row(c,true)).join('')||'<div class="empty">No hay coins ocultas.</div>';return}
- for(const s of['bonding','paid','migrated']){const l=data.coins.filter(c=>!hidden[c.ca]&&inSection(c,s)&&m(c)&&passes(c)).sort((a,b)=>b.vol[W]-a.vol[W]).slice(0,data.topN||50);
-  l.forEach(c=>view.push({...c,_sec:s}));$('c_'+s).textContent=l.length;$('l_'+s).innerHTML=l.map(c=>row(c,false,s)).join('')||'<div class="empty">Ninguna pasa los filtros.</div>'}}
+ document.querySelectorAll('#athb button').forEach(b=>b.classList.toggle('on',+b.dataset.ath===(F.athMin||0)));
+ for(const s of['bonding','paid','migrated']){const l=data.coins.filter(c=>!hidden[c.ca]&&inSection(c,s)&&m(c)&&passes(c)&&(s!=='bonding'||athOk(c))).sort((a,b)=>b.vol[W]-a.vol[W]).slice(0,data.topN||50);
+  l.forEach(c=>view.push({...c,_sec:s}));$('c_'+s).textContent=l.length;$('l_'+s).innerHTML=(s==='bonding'?athBlocks(l).map(([lb,g])=>`<div class="bh">ATH ${lb} <span>${g.length}</span></div>`+g.map(c=>row(c,false,s)).join('')).join(''):l.map(c=>row(c,false,s)).join(''))||'<div class="empty">Ninguna pasa los filtros.</div>'}}
 document.addEventListener('click',e=>{const t=e.target;
  if(t.dataset.m){MODE=t.dataset.m;history.replaceState(null,'',MODE==='paid'?'#dexpaid':'#');return render()}
+ if(t.dataset.ath!=null){F.athMin=+t.dataset.ath;localStorage.rvFilters6=JSON.stringify(F);return render()}
  if(t.dataset.w){W=t.dataset.w;document.querySelectorAll('#wins button').forEach(b=>b.classList.toggle('on',b===t));return render()}
  if(t.dataset.ca){navigator.clipboard?.writeText(t.dataset.ca);const o=t.textContent;t.textContent='Copiado';setTimeout(()=>t.textContent=o,900);return}
  if(t.dataset.h){const ca=t.dataset.h;hidden[ca]?delete hidden[ca]:hidden[ca]=Date.now();localStorage.rvHidden=JSON.stringify(hidden);return render()}
