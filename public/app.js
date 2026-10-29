@@ -41,12 +41,25 @@ function row(c,isH,s,sp){const evl=s==='paid'?`<span class="evt">DEX pagado hace
 // Gráficas (solo pestaña DEX Paid): charts.json se carga al abrir la pestaña
 let CH=null,chLoading=false;
 async function loadCharts(force){if(chLoading||(CH&&!force))return;chLoading=true;try{const u=(window.DATA_URL||'data/coins.json').replace(/coins\.json$/,'charts.json');const r=await fetch(u+'?t='+Date.now(),{cache:'no-store'});if(r.ok){CH=(await r.json()).charts||{};if(MODE==='paid')renderPaid()}}catch(e){}chLoading=false}
-function spark(c){const g=CH&&CH[c.ca];if(!CH)return'<div class="spark ph2">cargando…</div>';if(!g||!g.c||g.c.length<2)return'<div class="spark ph2">sin gráfica</div>';
+// Las que no trae charts.json (GeckoTerminal limita mucho desde GitHub) se piden desde el navegador, 1 cada 2,5 s, con caché 30 min
+const GTP='https://api.geckoterminal.com/api/v2/networks/solana/pools/';let LC=JSON.parse(localStorage.rvCharts||'{}'),gq=[],gBusy=false,gNoData={};
+for(const ca in LC)if(Date.now()-LC[ca].f>36e5)delete LC[ca];
+function chartOf(c){const a=CH&&CH[c.ca],b=LC[c.ca];if(a&&a.p===c.pair&&(!b||a.f>=b.f))return a;if(b&&b.p===c.pair)return b;return a||null}
+function queueChart(c){if(gNoData[c.ca]||gq.some(x=>x.ca===c.ca))return;const g=chartOf(c);if(g&&Date.now()-g.f<30*60e3)return;gq.push(c);pumpQ()}
+async function pumpQ(){if(gBusy)return;gBusy=true;while(gq.length&&MODE==='paid'){const c=gq.shift();let wait=2500;
+ try{const r=await fetch(GTP+c.pair+'/ohlcv/minute?aggregate=5&limit=288&currency=usd');
+  if(r.status===429){gq.unshift(c);wait=30000}else if(r.ok){const l=(await r.json())?.data?.attributes?.ohlcv_list||[];
+   if(l.length){const rows=l.map(x=>[x[0],x[4]]).sort((a,b)=>a[0]-b[0]),t0=rows[0][0],v=[];for(const[t,p]of rows){const i=Math.round((t-t0)/300);while(v.length<i)v.push(v.at(-1));v[i]=Math.round(p*1e9)}
+    LC[c.ca]={t0,s:300,c:v,p:c.pair,f:Date.now()};try{localStorage.rvCharts=JSON.stringify(LC)}catch(e){LC={}}}else gNoData[c.ca]=1;
+   const el=document.querySelector(`.spark[data-sp="${c.ca}"]`);if(el)el.outerHTML=spark(c)}else gNoData[c.ca]=1}catch(e){gNoData[c.ca]=1}
+ await new Promise(r=>setTimeout(r,wait))}gBusy=false}
+function spark(c){if(!CH)return`<div class="spark ph2" data-sp="${c.ca}">cargando…</div>`;const g=chartOf(c);if(!g||Date.now()-g.f>=30*60e3)queueChart(c);
+ if(!g||!g.c||g.c.length<2)return`<div class="spark ph2" data-sp="${c.ca}">${gq.some(x=>x.ca===c.ca)?'cargando gráfica…':'sin gráfica'}</div>`;
  const v=g.c,n=v.length,W2=200,H2=50,P=3;let mn=Infinity,mx=-Infinity,im=0;v.forEach((x,i)=>{if(x<mn)mn=x;if(x>mx){mx=x;im=i}});const rg=mx-mn||1;
  const X=i=>(P+i*(W2-2*P)/(n-1)).toFixed(1),Y=x=>(H2-P-(x-mn)*(H2-2*P)/rg).toFixed(1);
  const col=v[n-1]>v[0]?'#2ecc71':'#ff5c5c',pts=v.map((x,i)=>X(i)+','+Y(x)).join(' ');
  let pm='';const pt=c.paidAt/1e3;if(c.paidAt&&pt>=g.t0&&pt<=g.t0+(n-1)*g.s){const xp=X((pt-g.t0)/g.s);pm=`<line x1="${xp}" x2="${xp}" y1="2" y2="${H2-2}" stroke="#f5c542" stroke-width="1" stroke-dasharray="2 2" opacity=".7"><title>DEX pagado</title></line>`}
- return`<div class="spark" title="${n*5>=120?Math.round(n*5/60)+' h':n*5+' min'} · velas 5 min · ATH ${money(mx)}"><svg width="${W2}" height="${H2}" viewBox="0 0 ${W2} ${H2}">${pm}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="${X(im)}" cy="${Y(mx)}" r="2.6" fill="#fff" stroke="${col}"><title>ATH ${money(mx)}</title></circle></svg></div>`}
+ return`<div class="spark" data-sp="${c.ca}" title="${n*5>=120?Math.round(n*5/60)+' h':n*5+' min'} · velas 5 min · ATH ${money(mx)}"><svg width="${W2}" height="${H2}" viewBox="0 0 ${W2} ${H2}">${pm}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="${X(im)}" cy="${Y(mx)}" r="2.6" fill="#fff" stroke="${col}"><title>ATH ${money(mx)}</title></circle></svg></div>`}
 function renderPaid(){const l=data.coins.filter(c=>c.paidDex&&c.paidAt&&inWin(c.paidAt)&&(showHidden?hidden[c.ca]:!hidden[c.ca])).filter(c=>{const q=Q.toLowerCase();return !q||c.symbol.toLowerCase().includes(q)||c.name.toLowerCase().includes(q)||c.ca.toLowerCase()===q}).sort((a,b)=>b.paidAt-a.paidAt);
  view=l.map(c=>({...c,_sec:c.migrated?'dexpaid_migrada':'dexpaid_curva'}));$('c_dexpaid').textContent=l.length;
  loadCharts();$('l_dexpaid').innerHTML=l.map((c,i)=>row(c,showHidden,'paid',true)).join('')||'<div class="empty">Ninguna coin pagó DEX en esta ventana.</div>'}

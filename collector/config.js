@@ -20,7 +20,7 @@ export default {
   chartDelayMs: 2600,           // gráficas DEX Paid: GeckoTerminal ~23 req/min
   chartHours: 24,               // gráficas para coins que pagaron DEX en las últimas 24 h
   chartReuseMin: 30,            // reutilizar la gráfica si se descargó hace menos de 30 min
-  chartDeadlineMs: 690000,      // dejar de pedir gráficas a los 11,5 min desde el inicio
+  chartDeadlineMs: 510000,      // dejar de pedir gráficas a los 8,5 min (el resto las pide el navegador)
   // Hook de fees reales (Helius). Desactivado: activar con HELIUS_API_KEY y FEES_ENABLED=1.
   fees: { enabled: process.env.FEES_ENABLED === '1', heliusKey: process.env.HELIUS_API_KEY || '' },
 };
