@@ -29,18 +29,27 @@ const athOk=c=>!(F.athMin>0)||(athV(c)!=null&&athV(c)>=F.athMin);
 function athBlocks(l){const out=ATHB.filter(([lo,hi])=>hi>(F.athMin||0)).map(([lo,hi,lb])=>[lb,l.filter(c=>{const a=athV(c);return a!=null&&a>=lo&&a<hi})]);
  if(!(F.athMin>0))out.push(['sin datos',l.filter(c=>athV(c)==null)]);return out.filter(([,g])=>g.length)}
 const ICON={web:'🌐',twitter:'𝕏',telegram:'✈',discord:'◎'};
-function row(c,isH,s){const evl=s==='paid'?`<span class="evt">DEX pagado hace ${age(c.paidAt)}${c.paidEst?' (aprox.)':''}</span>`:s==='migrated'?`<span class="evt">migró hace ${age(c.migratedAt)}</span>`:'';const st=stats(c,W),L=c.links||{},sh=c.ca.slice(0,4)+'…'+c.ca.slice(-4);
+function row(c,isH,s,sp){const evl=s==='paid'?`<span class="evt">DEX pagado hace ${age(c.paidAt)}${c.paidEst?' (aprox.)':''}</span>`:s==='migrated'?`<span class="evt">migró hace ${age(c.migratedAt)}</span>`:'';const st=stats(c,W),L=c.links||{},sh=c.ca.slice(0,4)+'…'+c.ca.slice(-4);
  return`<div class="r" data-ax="${c.axiom}">
  <div class="im">${c.image?`<img src="${esc(c.image)}" loading="lazy">`:'<div class="ph"></div>'}<span class="short" data-ca="${c.ca}" title="Copiar CA">${sh}</span></div>
  <div class="mid"><div class="t1"><span class="tk">${esc(c.symbol)}</span><span class="nm">${esc(c.name)}</span><span class="cp" data-ca="${c.ca}" title="Copiar CA">⧉</span></div>
  <div class="t2"><span class="age" title="edad de la coin">${age(c.createdAt)}</span>${evl}${Object.entries(L).filter(([t])=>ICON[t]).map(([t,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener" title="${t}">${ICON[t]}</a>`).join('')}
  <span class="b">▲ ${k(st.buys)}</span><span class="s">▼ ${k(st.sells)}</span>${c.paidDex?'<span class="pill">DEX PAID</span>':''}<span class="tag">${c.migrated?'migrada · '+esc(c.dex):'curva'}</span></div>
  <div class="t2"><span class="sm">Liq ${money(c.liquidity)}</span><button class="eye" data-h="${c.ca}" title="${isH?'Restaurar':'Ocultar'}">${isH?'↺ restaurar':'⊘ ocultar'}</button></div></div>
- <div class="box"><div class="vm">V <b class="v">${money(c.vol[W])}</b>${(W==='h3'||W==='h8')&&!(c.txw&&c.txw[W])?' est.':''}&nbsp; MC <b class="mc">${money(c.mcap)}</b></div>
+ ${sp?spark(c):''}<div class="box"><div class="vm">V <b class="v">${money(c.vol[W])}</b>${(W==='h3'||W==='h8')&&!(c.txw&&c.txw[W])?' est.':''}&nbsp; MC <b class="mc">${money(c.mcap)}</b></div>
  ${c.ath?`<div class="sm">ATH <b class="ath">${money(c.ath.ath)}</b>${c.ath.estimated?' est.':''} <span class="s">${c.ath.ath>0?Math.round((c.mcap/c.ath.ath-1)*100)+'%':''}</span></div>`:''}<div class="sm">TX ${k(st.tx)} <span class="bar"><i style="width:${Math.round(st.ratio*100)}%"></i></span></div><div class="sm">Media ${money(st.avg)}/op</div></div></div>`}
+// Gráficas (solo pestaña DEX Paid): charts.json se carga al abrir la pestaña
+let CH=null,chLoading=false;
+async function loadCharts(force){if(chLoading||(CH&&!force))return;chLoading=true;try{const u=(window.DATA_URL||'data/coins.json').replace(/coins\.json$/,'charts.json');const r=await fetch(u+'?t='+Date.now(),{cache:'no-store'});if(r.ok){CH=(await r.json()).charts||{};if(MODE==='paid')renderPaid()}}catch(e){}chLoading=false}
+function spark(c){const g=CH&&CH[c.ca];if(!CH)return'<div class="spark ph2">cargando…</div>';if(!g||!g.c||g.c.length<2)return'<div class="spark ph2">sin gráfica</div>';
+ const v=g.c,n=v.length,W2=200,H2=50,P=3;let mn=Infinity,mx=-Infinity,im=0;v.forEach((x,i)=>{if(x<mn)mn=x;if(x>mx){mx=x;im=i}});const rg=mx-mn||1;
+ const X=i=>(P+i*(W2-2*P)/(n-1)).toFixed(1),Y=x=>(H2-P-(x-mn)*(H2-2*P)/rg).toFixed(1);
+ const col=v[n-1]>v[0]?'#2ecc71':'#ff5c5c',pts=v.map((x,i)=>X(i)+','+Y(x)).join(' ');
+ let pm='';const pt=c.paidAt/1e3;if(c.paidAt&&pt>=g.t0&&pt<=g.t0+(n-1)*g.s){const xp=X((pt-g.t0)/g.s);pm=`<line x1="${xp}" x2="${xp}" y1="2" y2="${H2-2}" stroke="#f5c542" stroke-width="1" stroke-dasharray="2 2" opacity=".7"><title>DEX pagado</title></line>`}
+ return`<div class="spark" title="${n*5>=120?Math.round(n*5/60)+' h':n*5+' min'} · velas 5 min · ATH ${money(mx)}"><svg width="${W2}" height="${H2}" viewBox="0 0 ${W2} ${H2}">${pm}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="${X(im)}" cy="${Y(mx)}" r="2.6" fill="#fff" stroke="${col}"><title>ATH ${money(mx)}</title></circle></svg></div>`}
 function renderPaid(){const l=data.coins.filter(c=>c.paidDex&&c.paidAt&&inWin(c.paidAt)&&(showHidden?hidden[c.ca]:!hidden[c.ca])).filter(c=>{const q=Q.toLowerCase();return !q||c.symbol.toLowerCase().includes(q)||c.name.toLowerCase().includes(q)||c.ca.toLowerCase()===q}).sort((a,b)=>b.paidAt-a.paidAt);
  view=l.map(c=>({...c,_sec:c.migrated?'dexpaid_migrada':'dexpaid_curva'}));$('c_dexpaid').textContent=l.length;
- $('l_dexpaid').innerHTML=l.map((c,i)=>row(c,showHidden,'paid')).join('')||'<div class="empty">Ninguna coin pagó DEX en esta ventana.</div>'}
+ loadCharts();$('l_dexpaid').innerHTML=l.map((c,i)=>row(c,showHidden,'paid',true)).join('')||'<div class="empty">Ninguna coin pagó DEX en esta ventana.</div>'}
 function render(){$('cols').hidden=MODE!=='rank';$('pcol').hidden=MODE!=='paid';document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.dataset.m===MODE));
  if(MODE==='paid'){$('nh').textContent=Object.keys(hidden).length;return renderPaid()}$('nh').textContent=Object.keys(hidden).length;view=[];const q=Q.toLowerCase();
  const m=c=>!q||c.symbol.toLowerCase().includes(q)||c.name.toLowerCase().includes(q)||c.ca.toLowerCase()===q;
@@ -66,7 +75,7 @@ $('csv').onclick=()=>{const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
  const rows=[['seccion','nombre','ticker','CA','volumen_'+W,'market_cap','liquidez','compras','ventas','media_op','dex_pagado','migrada','ath','ath_estimado','creada','axiom']].concat(view.map(c=>{const st=stats(c,W);return[c._sec||'oculta',c.name,c.symbol,c.ca,Math.round(c.vol[W]),Math.round(c.mcap),Math.round(c.liquidity),st.buys,st.sells,Math.round(st.avg),c.paidAt?new Date(c.paidAt).toISOString():'',c.migratedAt?new Date(c.migratedAt).toISOString():'',Math.round(c.ath?.ath||0),c.ath?.estimated?'si':'no',new Date(c.createdAt).toISOString(),c.axiom]}));
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}));a.download=`ranking_${W}_${new Date().toISOString().slice(0,16)}.csv`;a.click()};
 async function load(){try{const r=await fetch((window.DATA_URL||'data/coins.json')+'?t='+Date.now(),{cache:'no-store'});data=await r.json();
- $('upd').textContent='Actualizado '+new Date(data.updatedAt).toLocaleTimeString('es-ES')+' · '+data.coins.length+' analizadas';render()}catch(e){$('upd').textContent='Sin datos aún'}}
+ if(CH)loadCharts(true);$('upd').textContent='Actualizado '+new Date(data.updatedAt).toLocaleTimeString('es-ES')+' · '+data.coins.length+' analizadas';render()}catch(e){$('upd').textContent='Sin datos aún'}}
 // Botón Actualizar: lanza el workflow vía /api/refresh y espera a que termine
 let rfTimer=null;
 const rfMsg=(t,err)=>{const m=$('rfmsg');m.textContent=t||'';m.classList.toggle('err',!!err)};
@@ -76,14 +85,14 @@ function rfDone(t,err){clearInterval(rfTimer);rfTimer=null;$('rf').disabled=fals
 function rfPoll(match){const t0=Date.now();rfTimer=setInterval(async()=>{try{
  const {run}=await rfApi('GET');
  if(!run||!match(run)){if(Date.now()-t0>3*60e3)rfDone('No aparece la ejecución en GitHub',true);return}
- if(run.status!=='completed')return rfMsg('Actualizando… (~6 min)');
+ if(run.status!=='completed')return rfMsg('Actualizando… (~9 min)');
  if(run.conclusion==='success'){await new Promise(r=>setTimeout(r,5000));await load();rfDone('✓ Datos actualizados')}
  else rfDone('La actualización falló ('+(run.conclusion||'error')+')',true)
  }catch(e){rfDone(e.message,true)}},20000)}
 $('rf').onclick=async()=>{if(rfTimer)return;$('rf').disabled=true;rfMsg('Lanzando…');try{
  const j=await rfApi('POST');
- if(j.dispatched){const since=new Date(j.since).getTime()-60e3;rfMsg('Actualizando… (~6 min)');rfPoll(run=>new Date(run.createdAt).getTime()>=since)}
- else if(j.run&&j.run.status!=='completed'){rfMsg(j.message+'… (~6 min)');rfPoll(run=>run.id===j.run.id)}
+ if(j.dispatched){const since=new Date(j.since).getTime()-60e3;rfMsg('Actualizando… (~9 min)');rfPoll(run=>new Date(run.createdAt).getTime()>=since)}
+ else if(j.run&&j.run.status!=='completed'){rfMsg(j.message+'… (~9 min)');rfPoll(run=>run.id===j.run.id)}
  else rfDone(j.message||'No se lanzó')
  }catch(e){rfDone(e.message,true)}};
 if(location.hash==='#dexpaid')MODE='paid';

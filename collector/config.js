@@ -17,6 +17,10 @@ export default {
   maxOrdersRequests: 170,         // DexScreener orders (~60 req/min): fecha de pago del DEX          // GeckoTerminal público limita fuerte (~10 req/min real): 6 s entre peticiones
   timeBudgetMs: 360000,        // corta las velas a los 4 min para no solaparse con la siguiente ejecución
   geckoDelayMs: 6000,
+  chartDelayMs: 2600,           // gráficas DEX Paid: GeckoTerminal ~23 req/min
+  chartHours: 24,               // gráficas para coins que pagaron DEX en las últimas 24 h
+  chartReuseMin: 30,            // reutilizar la gráfica si se descargó hace menos de 30 min
+  chartDeadlineMs: 690000,      // dejar de pedir gráficas a los 11,5 min desde el inicio
   // Hook de fees reales (Helius). Desactivado: activar con HELIUS_API_KEY y FEES_ENABLED=1.
   fees: { enabled: process.env.FEES_ENABLED === '1', heliusKey: process.env.HELIUS_API_KEY || '' },
 };

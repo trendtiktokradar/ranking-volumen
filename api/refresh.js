@@ -74,7 +74,7 @@ export default async function handler(req, res) {
 
     const d = await gh('/dispatches', token, { method: 'POST', body: JSON.stringify({ ref: 'main' }) });
     if (d.status !== 204 && !d.ok) return send(502, { ok: false, error: await errText(d) });
-    return send(202, { ok: true, dispatched: true, since: new Date().toISOString(), message: 'Actualizando… (~6 min)' });
+    return send(202, { ok: true, dispatched: true, since: new Date().toISOString(), message: 'Actualizando… (~9 min)' });
   } catch (e) {
     return send(502, { ok: false, error: String(e.message || e) });
   }

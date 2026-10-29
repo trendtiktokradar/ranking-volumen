@@ -11,6 +11,9 @@ const athFile = new URL('ath.json', OUT);
 const evFile = new URL('events.json', OUT);
 let ev = {}; try { ev = JSON.parse(fs.readFileSync(evFile)); } catch {}
 let athDb = {}; try { athDb = JSON.parse(fs.readFileSync(athFile)); } catch {}
+const chartsFile = new URL('charts.json', OUT);
+let prevCharts = {}; try { prevCharts = JSON.parse(fs.readFileSync(chartsFile)).charts || {}; } catch {}
+const charts = {};
 for (const name of cfg.chains) {
   const c = await import(`./chains/${name}.js`);
   const addrs = await c.discover(cfg);
@@ -69,6 +72,20 @@ for (const name of cfg.chains) {
   for (const x of coins) { const e = ev[x.ca]; if (x.paidDex && e && 'paidAt' in e) { x.paidAt = e.paidAt; x.paidEst = !!e.paidEst; } }
   console.log(`[${name}] órdenes DEX consultadas: ${nOrders}, pendientes: ${Math.max(0, needPaid.length - nOrders)}`);
   console.log(`[${name}] 3h/8h desde historial: ${coins.filter((x) => !x.volEstimated).length}, velas GT: ${n}, instantáneas: ${hist.snaps.length}`);
+  // Gráficas de la pestaña DEX Paid: pagadas en las últimas chartHours h, las más recientes primero
+  if (c.chart) {
+    const want = coins.filter((x) => x.paidDex && x.paidAt && Date.now() - x.paidAt <= cfg.chartHours * 36e5 && x.pair).sort((a, b) => b.paidAt - a.paidAt);
+    let got = 0, reused = 0, fails = 0;
+    for (const x of want) {
+      const prev = prevCharts[x.ca];
+      if (prev && prev.p === x.pair && Date.now() - prev.f < cfg.chartReuseMin * 60e3) { charts[x.ca] = prev; reused++; continue; }
+      if (Date.now() - t0 > cfg.chartDeadlineMs) { if (prev && prev.p === x.pair) { charts[x.ca] = prev; reused++; } continue; }
+      const ch = await c.chart(x.pair, cfg);
+      if (ch) { charts[x.ca] = { ...ch, p: x.pair, f: Date.now() }; got++; }
+      else { fails++; if (prev && prev.p === x.pair) { charts[x.ca] = prev; reused++; } }
+    }
+    console.log(`[${name}] gráficas DEX Paid: ${want.length} coins, descargadas ${got}, reutilizadas ${reused}, sin datos/error ${fails}, sin pedir ${want.length - got - reused - fails}`);
+  }
   all.push(...coins);
 }
 console.log(`en curva sin DEX pagado: ${all.filter((x) => !x.migrated && !x.paidDex).length}`);
@@ -78,6 +95,7 @@ fs.writeFileSync(new URL('coins.json', OUT), JSON.stringify(data));
 fs.writeFileSync(histFile, JSON.stringify(hist));
 fs.writeFileSync(athFile, JSON.stringify(athDb));
 fs.writeFileSync(evFile, JSON.stringify(ev));
+fs.writeFileSync(chartsFile, JSON.stringify({ updatedAt: data.updatedAt, charts }));
 const cols = ['chain', 'ca', 'name', 'symbol', 'pair', 'dex', 'migrated', 'paidDex', 'mcap', 'liquidity', 'createdAt'];
 const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 const csv = [[...cols, 'paidAt', 'migratedAt', 'ath', 'vol3h', 'vol6h', 'vol8h', 'vol24h', 'buys24h', 'sells24h', 'axiom'].join(',')]

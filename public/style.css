@@ -38,3 +38,6 @@ input[type=number]{background:var(--bg);color:var(--txt);border:1px solid var(--
 .bh{position:sticky;top:0;z-index:1;background:#14120a;color:#f5c542;font-size:11px;font-weight:700;padding:4px 10px;border-bottom:1px solid var(--line)}.bh span{color:var(--mut);font-weight:400;margin-left:4px}
 
 #rfmsg{color:var(--mut);font-size:11px;max-width:260px}#rfmsg.err{color:#ff6b6b}#rf:disabled{opacity:.6;cursor:wait}
+
+.spark{flex:none;width:200px;height:50px;align-self:center;display:flex;align-items:center;justify-content:center}.spark svg{display:block}.spark.ph2{color:#5b6170;font-size:11px;border:1px dashed #262a36;border-radius:6px}
+@media(max-width:720px){.spark{display:none}}

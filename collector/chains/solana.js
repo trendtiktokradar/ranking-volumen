@@ -123,3 +123,18 @@ export async function paidAt(ca) {
   const ts = (r.orders || []).filter((o) => o.type === 'tokenProfile' && o.status !== 'rejected' && o.paymentTimestamp).map((o) => o.paymentTimestamp);
   return ts.length ? Math.min(...ts) : null;
 }
+
+// Gráfica de precio (velas de 5 min, GeckoTerminal) del pool principal: market cap (precio × 1e9) al cierre de cada vela.
+// Devuelve { t0 (s), s: 300, c: [...] } con huecos rellenados con el cierre anterior; null si no hay datos.
+export async function chart(pair, cfg) {
+  const r = await getJson(`${GT}/pools/${pair}/ohlcv/minute?aggregate=5&limit=288&currency=usd`, { gecko: true, delay: cfg.chartDelayMs, tries: 2 });
+  const list = r?.data?.attributes?.ohlcv_list; if (!list?.length) return r ? null : undefined; // undefined: error de red/429
+  const rows = list.map((x) => [x[0], x[4]]).sort((a, b) => a[0] - b[0]);
+  const t0 = rows[0][0], S = 300, c = [];
+  for (const [t, p] of rows) {
+    const i = Math.round((t - t0) / S);
+    while (c.length < i) c.push(c.at(-1));
+    c[i] = Math.round(p * 1e9);
+  }
+  return { t0, s: S, c };
+}
